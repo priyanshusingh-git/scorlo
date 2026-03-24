@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AppUser {
+  id            BigInt        @id @default(autoincrement())
+  firebaseUid   String        @unique @map("firebase_uid")
+  email         String        @unique
+  emailVerified Boolean       @default(false) @map("email_verified")
+  displayName   String?       @map("display_name")
+  role          String        @default("student") @db.VarChar(16)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
+  lastLoginAt   DateTime?     @map("last_login_at") @db.Timestamptz(6)
+  dataRequests  DataRequest[]
+  studentLink   StudentLink?
+
+  @@index([role], map: "ix_app_users_role")
+  @@index([firebaseUid], map: "ix_app_users_firebase_uid")
+  @@map("app_users")
+}
+
+model StudentLink {
+  id        BigInt    @id @default(autoincrement())
+  appUserId BigInt    @unique @map("app_user_id")
+  studentId BigInt?   @unique @map("student_id")
+  rollNo    String    @unique @map("roll_no") @db.VarChar(32)
+  status    String    @default("pending_data") @db.VarChar(32)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  dob       String
+  appUser   AppUser   @relation(fields: [appUserId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  students  students? @relation(fields: [studentId], references: [id], onUpdate: NoAction)
+
+  @@index([studentId], map: "ix_student_links_student_id")
+  @@index([status], map: "ix_student_links_status")
+  @@map("student_links")
+}
+
+model DataRequest {
+  id        BigInt   @id @default(autoincrement())
+  appUserId BigInt   @map("app_user_id")
+  rollNo    String   @map("roll_no") @db.VarChar(32)
+  status    String   @default("pending") @db.VarChar(32)
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  dob       String
+  appUser   AppUser  @relation(fields: [appUserId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([status], map: "ix_data_requests_status")
+  @@index([rollNo], map: "ix_data_requests_roll_no")
+  @@map("data_requests")
+}
+
+model codex_probe_table {
+  id BigInt @id
+}
+
+model import_run_items {
+  id            Int         @id @default(autoincrement())
+  run_id        Int
+  row_index     Int
+  roll_no       String      @db.VarChar(32)
+  dob           String?     @db.VarChar(32)
+  status        String      @db.VarChar(32)
+  error_message String?
+  attempts      Int         @default(0)
+  started_at    DateTime?   @db.Timestamptz(6)
+  finished_at   DateTime?   @db.Timestamptz(6)
+  updated_at    DateTime    @default(now()) @db.Timestamptz(6)
+  import_runs   import_runs @relation(fields: [run_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([run_id, row_index], map: "uq_import_run_item")
+  @@index([roll_no], map: "ix_import_run_items_roll_no")
+  @@index([run_id], map: "ix_import_run_items_run_id")
+  @@index([status], map: "ix_import_run_items_status")
+}
+
+model import_runs {
+  id               Int                @id @default(autoincrement())
+  input_file       String
+  row_offset       Int                @default(0)
+  row_limit        Int?
+  total_rows       Int
+  status           String             @db.VarChar(32)
+  success_count    Int                @default(0)
+  failure_count    Int                @default(0)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  finished_at      DateTime?          @db.Timestamptz(6)
+  import_run_items import_run_items[]
+
+  @@index([input_file], map: "ix_import_runs_input_file")
+  @@index([status], map: "ix_import_runs_status")
+}
+
+model result_sessions {
+  id               Int                @id @default(autoincrement())
+  student_id       BigInt
+  session_id       String?            @db.VarChar(32)
+  session_type     String?            @db.VarChar(32)
+  result_summary   String?            @db.VarChar(64)
+  marks_obtained   Int?
+  marks_maximum    Int?
+  cop_subjects     String[]           @default([]) @db.VarChar
+  audit_status     String?            @db.VarChar(128)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  students         students           @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  semester_results semester_results[]
+
+  @@unique([student_id, session_id, session_type], map: "uq_result_session")
+  @@index([student_id], map: "ix_result_sessions_student_id")
+}
+
+model result_snapshots {
+  id           Int      @id @default(autoincrement())
+  student_id   BigInt
+  source_type  String   @db.VarChar(32)
+  source_hash  String   @db.VarChar(64)
+  raw_html     String
+  payload_json Json
+  fetched_at   DateTime @default(now()) @db.Timestamptz(6)
+  students     students @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([fetched_at], map: "ix_result_snapshots_fetched_at")
+  @@index([source_hash], map: "ix_result_snapshots_source_hash")
+  @@index([student_id], map: "ix_result_snapshots_student_id")
+}
+
+model semester_results {
+  id                   Int               @id @default(autoincrement())
+  result_session_id    Int
+  semester_no          Int
+  even_odd             String?           @db.VarChar(16)
+  total_subjects       Int?
+  theory_subjects      Int?
+  practical_subjects   Int?
+  total_marks_obtained Int?
+  result_status        String?           @db.VarChar(64)
+  sgpa                 Decimal?          @db.Decimal(5, 2)
+  date_of_declaration  DateTime?         @db.Date
+  created_at           DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime          @default(now()) @db.Timestamptz(6)
+  result_sessions      result_sessions   @relation(fields: [result_session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  subject_results      subject_results[]
+
+  @@unique([result_session_id, semester_no], map: "uq_semester_result")
+  @@index([result_session_id], map: "ix_semester_results_result_session_id")
+}
+
+model student_metrics {
+  student_id         BigInt      @id
+  latest_sgpa        Decimal? @db.Decimal(5, 2)
+  cgpa               Decimal? @db.Decimal(5, 2)
+  overall_percentage Decimal? @db.Decimal(6, 2)
+  active_backs       Int      @default(0)
+  cleared_backs      Int      @default(0)
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+  students           students @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model students {
+  id               BigInt             @id @default(autoincrement())
+  roll_no          String             @unique(map: "ix_students_roll_no") @db.VarChar(32)
+  enrollment_no    String?            @db.VarChar(32)
+  name             String?            @db.VarChar(255)
+  hindi_name       String?
+  father_name      String?            @db.VarChar(255)
+  mother_name      String?            @db.VarChar(255)
+  gender           String?            @db.VarChar(16)
+  institute_code   String?            @db.VarChar(32)
+  institute_name   String?            @db.VarChar(255)
+  course_code      String?            @db.VarChar(32)
+  course_name      String?            @db.VarChar(255)
+  branch_code      String?            @db.VarChar(32)
+  branch_name      String?            @db.VarChar(255)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  passing_year     Int?
+  result_sessions  result_sessions[]
+  result_snapshots result_snapshots[]
+  student_links    StudentLink?
+  student_metrics  student_metrics?
+}
+
+model subject_results {
+  id                 Int              @id @default(autoincrement())
+  semester_result_id Int
+  code               String?          @db.VarChar(64)
+  name               String?          @db.VarChar(255)
+  type               String?          @db.VarChar(64)
+  internal_marks     Int?
+  external_marks     Int?
+  total_marks        Int?
+  back_paper         String?          @db.VarChar(64)
+  grade              String?          @db.VarChar(32)
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime         @default(now()) @db.Timestamptz(6)
+  semester_results   semester_results @relation(fields: [semester_result_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([semester_result_id, code], map: "uq_subject_result")
+  @@index([semester_result_id], map: "ix_subject_results_semester_result_id")
+}

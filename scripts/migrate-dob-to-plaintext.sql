@@ -1,0 +1,5 @@
+ALTER TABLE student_links
+ADD COLUMN IF NOT EXISTS dob TEXT;
+
+ALTER TABLE data_requests
+ADD COLUMN IF NOT EXISTS dob TEXT;

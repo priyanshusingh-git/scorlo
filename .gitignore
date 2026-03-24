@@ -1,0 +1,21 @@
+# Node / Next.js
+node_modules/
+.next/
+.env
+.env.local
+.env.*.local
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+
+# Build / Temporary
+*.zip
+*.log
+search-columns.cjs
+run-update.cjs
+
+# Prisma
+# We usually keep the schema and config, but ignore the generated client if it's in a custom path.
+# In this case it's in node_modules, which is already ignored.
