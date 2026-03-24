@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:format": "prisma format",
     "prisma:studio": "prisma studio",
-    "prisma:pull": "prisma db pull"
+    "prisma:pull": "prisma db pull",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
