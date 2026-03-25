@@ -19,13 +19,13 @@ export function DesktopNav() {
             href={href}
             prefetch
             className={cn(
-              "flex items-center gap-3 rounded-[1.15rem] px-4 py-3 text-sm font-medium transition",
+              "group flex items-center gap-3 rounded-[1.2rem] border px-4 py-3 text-sm font-medium transition",
               active
-                ? "bg-white text-ink shadow-soft"
-                : "text-white/72 hover:bg-white/10 hover:text-white"
+                ? "border-white/20 bg-white text-ink shadow-[0_18px_40px_-24px_rgba(0,0,0,0.65)]"
+                : "border-transparent text-white/70 hover:border-white/10 hover:bg-white/8 hover:text-white"
             )}
           >
-            <Icon className="h-4 w-4" strokeWidth={2.1} />
+            <Icon className={cn("h-4 w-4 transition", active ? "text-accent-strong" : "text-white/75 group-hover:text-white")} strokeWidth={2.1} />
             <span>{label}</span>
           </Link>
         );

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { LoaderCircle, LogOut } from "lucide-react";
 import { getFirebaseClientAuth } from "@/lib/firebase/client";
 
@@ -10,7 +9,6 @@ export function LogoutButton({
 }: {
   className?: string;
 }) {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
 
   async function handleLogout() {
@@ -23,8 +21,7 @@ export function LogoutButton({
       } catch {
         // Server cookie removal is the critical part.
       }
-      router.push("/login");
-      router.refresh();
+      window.location.replace("/login");
     } finally {
       setPending(false);
     }

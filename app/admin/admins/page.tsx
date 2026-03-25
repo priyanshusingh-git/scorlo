@@ -19,10 +19,7 @@ export default async function AdminAccountsPage({ searchParams }: PageProps) {
 
   return (
     <AdminShell eyebrow="Admin accounts" title="Manage Admins">
-      <SectionBlock
-        title="Admin profiles"
-        description="Admin accounts are provisioned separately from student users and cannot be converted from student profiles."
-      >
+      <SectionBlock title="Admin profiles">
         <form className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <input
             type="text"
@@ -39,7 +36,7 @@ export default async function AdminAccountsPage({ searchParams }: PageProps) {
         fallback={
           <AdminSectionFallback
             title="Admin profiles"
-            description="Admin accounts are provisioned separately from student users and cannot be converted from student profiles."
+            description=""
             rows={3}
           />
         }
@@ -82,9 +79,6 @@ async function AdminAccountsList({
               <InfoLine label="Profile type" value="Admin-only account" />
             </div>
             <div className="space-y-4">
-              <div className="rounded-[1rem] bg-app/70 px-4 py-4 text-sm leading-7 text-slate">
-                This account is managed separately from student profiles. It has no AKTU roll-number or DOB workflow.
-              </div>
               <AdminDangerButton
                 label="Delete admin account"
                 url={`/api/admin/users/${account.id}`}
@@ -97,7 +91,7 @@ async function AdminAccountsList({
       ))}
 
       {admins.length === 0 ? (
-        <SectionBlock title="No admin accounts found" description="Adjust the search term and try again.">
+        <SectionBlock title="No admin accounts found">
           <p className="text-sm text-slate">No admin accounts matched the search.</p>
         </SectionBlock>
       ) : null}

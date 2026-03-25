@@ -443,3 +443,28 @@ export function DashboardCacheClearButton() {
     </div>
   );
 }
+export function AuthCleanupButton() {
+  const { pending, message, run } = useAdminRequest();
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          run({
+            url: "/api/admin/maintenance/auth-cleanup",
+            method: "POST",
+            confirmMessage: "Permanently delete ALL users who signed up over 48 hours ago but haven't verified their email?",
+            successMessage: "Purge complete."
+          })
+        }
+        className="inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm font-semibold text-danger disabled:opacity-60"
+      >
+        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+        <span>{pending ? "Purging..." : "Purge unverified accounts (48h+)"}</span>
+      </button>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}

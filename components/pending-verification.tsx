@@ -17,13 +17,13 @@ export function PendingVerification({
         {rollNo ? <StatusBadge tone="info">{rollNo}</StatusBadge> : null}
       </div>
       <p className="mt-4 text-sm leading-7 text-slate">
-        Your account is under verification from the admin. Once the record is confirmed, Scorlo
-        will unlock results, rankings, and the rest of the student dashboard.
+        Your account is under review. Once the record is confirmed, the rest of your workspace
+        will unlock automatically.
       </p>
-      <div className="mt-5 rounded-[1.2rem] bg-app/70 px-4 py-4 text-sm leading-7 text-slate">
+      <div className="glass-card mt-5 rounded-[1.35rem] border border-white/70 px-4 py-4 text-sm leading-7 text-slate">
         For now, you can log out and come back later after the academic record has been reviewed.
       </div>
-      <LogoutButton className="mt-5 inline-flex items-center gap-2 rounded-[1.2rem] border border-line bg-surface px-4 py-3 text-sm font-semibold text-ink shadow-soft" />
+      <LogoutButton className="glass-card mt-5 inline-flex items-center gap-2 rounded-[1.2rem] border border-white/70 px-4 py-3 text-sm font-semibold text-ink shadow-soft" />
     </SectionBlock>
   );
 }

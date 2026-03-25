@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import {
   DashboardCacheClearButton,
   DashboardCacheRebuildButton,
-  RankingRebuildButton
+  RankingRebuildButton,
+  AuthCleanupButton
 } from "@/components/admin-actions";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminSectionFallback } from "@/components/admin-stream-fallback";
@@ -22,7 +23,7 @@ export default async function AdminMaintenancePage() {
           fallback={
             <AdminSectionFallback
               title="Maintenance controls"
-              description="Manage ranking and dashboard snapshot caches."
+              description=""
               rows={2}
             />
           }
@@ -34,7 +35,7 @@ export default async function AdminMaintenancePage() {
           fallback={
             <AdminSectionFallback
               title="Recent maintenance activity"
-              description="Cache rebuilds and clears are pulled from the admin audit log."
+              description=""
               rows={4}
             />
           }
@@ -57,7 +58,6 @@ async function MaintenanceControls({
     <div className="space-y-5 xl:sticky xl:top-8 xl:self-start">
       <SectionBlock
         title="Ranking cache"
-        description="Rebuild the cached student_rankings table after admin data changes or batch updates."
       >
         <div className="mb-4 flex flex-wrap gap-2">
           <StatusBadge tone="accent">{info.totalRankingRows} rows stored</StatusBadge>
@@ -68,7 +68,6 @@ async function MaintenanceControls({
 
       <SectionBlock
         title="Dashboard cache"
-        description="Manage stored full app snapshots for linked students, including rankings."
       >
         <div className="mb-4 flex flex-wrap gap-2">
           <StatusBadge tone="accent">{info.totalDashboardCacheRows} rows stored</StatusBadge>
@@ -78,6 +77,16 @@ async function MaintenanceControls({
           <DashboardCacheRebuildButton />
           <DashboardCacheClearButton />
         </div>
+      </SectionBlock>
+
+      <SectionBlock
+        title="Authentication"
+      >
+        <div className="mb-4 flex flex-wrap gap-2">
+          <StatusBadge tone="warning">Destructive maintenance action</StatusBadge>
+          <StatusBadge tone="info">Deletes unverified users (48h+)</StatusBadge>
+        </div>
+        <AuthCleanupButton />
       </SectionBlock>
     </div>
   );
@@ -94,7 +103,6 @@ async function MaintenanceLogs({
     <div className="space-y-5">
       <SectionBlock
         title="Recent ranking rebuilds"
-        description="Pulled from the admin audit log."
       >
         <div className="space-y-3">
           {info.recentRankingRebuilds.length > 0 ? (
@@ -123,7 +131,6 @@ async function MaintenanceLogs({
 
       <SectionBlock
         title="Recent dashboard cache actions"
-        description="Full app snapshot rebuilds and clears are logged here."
       >
         <div className="space-y-3">
           {info.recentDashboardCacheActions.length > 0 ? (

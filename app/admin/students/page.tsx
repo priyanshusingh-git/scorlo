@@ -24,10 +24,7 @@ export default async function AdminStudentsPage({ searchParams }: PageProps) {
 
   return (
     <AdminShell eyebrow="Academic records" title="Students">
-      <SectionBlock
-        title="Search students"
-        description="Inspect live academic records, linked accounts, and manual attachment controls."
-      >
+      <SectionBlock title="Search students">
         <form className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <input
             type="text"
@@ -42,25 +39,25 @@ export default async function AdminStudentsPage({ searchParams }: PageProps) {
 
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
         <Suspense
-          fallback={
-            <AdminSectionFallback
-              title="Search results"
-              description="Select a student record to inspect the detail rail."
-              rows={4}
-            />
-          }
+        fallback={
+          <AdminSectionFallback
+            title="Search results"
+            description=""
+            rows={4}
+          />
+        }
         >
           <StudentSearchResults studentsPromise={studentsPromise} query={query} />
         </Suspense>
 
         <Suspense
-          fallback={
-            <AdminSectionFallback
-              title="Student detail"
-              description="Select a student from the search results to inspect and mutate the record."
-              rows={5}
-            />
-          }
+        fallback={
+          <AdminSectionFallback
+            title="Student detail"
+            description=""
+            rows={5}
+          />
+        }
         >
           <StudentDetailSection detailPromise={detailPromise} />
         </Suspense>
@@ -79,7 +76,7 @@ async function StudentSearchResults({
   const students = await studentsPromise;
 
   return (
-    <SectionBlock title="Search results" description="Select a student record to inspect the detail rail.">
+    <SectionBlock title="Search results">
       <div className="space-y-3">
         {students.map((student) => (
           <a
@@ -155,7 +152,7 @@ async function StudentDetailSection({
             ) : null}
           </div>
 
-          <SectionBlock title="Recent semesters" description="Latest stored row per semester.">
+          <SectionBlock title="Recent semesters">
             <div className="space-y-3">
               {detail.recent_semesters.map((semester) => (
                 <div
@@ -180,9 +177,8 @@ async function StudentDetailSection({
           />
         </div>
       ) : (
-        <p className="text-sm leading-7 text-slate">
-          Pick a student from the left column to inspect metrics, recent semesters, linked app state,
-          stored DOB, and destructive controls.
+          <p className="text-sm leading-7 text-slate">
+          Select a student to view the record.
         </p>
       )}
     </SectionBlock>

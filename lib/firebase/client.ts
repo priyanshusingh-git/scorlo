@@ -1,5 +1,6 @@
 import { FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 import { getClientEnv } from "@/lib/env";
 
 let firebaseApp: FirebaseApp | null = null;
@@ -19,6 +20,21 @@ export function getFirebaseClientApp() {
       messagingSenderId: config.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       storageBucket: config.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
     });
+
+  // Initialize App Check only in the browser
+  if (typeof window !== "undefined") {
+    // If in development, set the debug token BEFORE initialization
+    if (process.env.NODE_ENV === "development") {
+      // @ts-ignore - Enable debug token logging in console
+      self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    }
+
+    initializeAppCheck(firebaseApp, {
+      provider: new ReCaptchaEnterpriseProvider("6Ld3GZgsAAAAAHc_AxAeIP9Y2x43HIYxvvKC60Pe"),
+      isTokenAutoRefreshEnabled: true
+    });
+    console.info("✅ [FIREBASE] App Check initialized");
+  }
 
   return firebaseApp;
 }

@@ -3,20 +3,21 @@ import type { DashboardProgressChart } from "@/lib/queries/dashboard";
 export function ProgressChart({ chart }: { chart: DashboardProgressChart }) {
   if (chart.points.length === 0) {
     return (
-      <div className="soft-grid rounded-[1.5rem] border border-line bg-app/70 p-4">
+      <div className="soft-grid rounded-[1.7rem] border border-white/70 bg-app/60 p-5">
         <p className="text-sm leading-7 text-slate">
-          SGPA trend will appear here once semester results are available in the academic database.
+          Your SGPA trend will appear here once semester results are available.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="soft-grid rounded-[1.5rem] border border-line bg-app/70 p-4">
-      <div className="mb-4 flex items-end justify-between gap-4">
+    <div className="soft-grid relative overflow-hidden rounded-[1.7rem] border border-white/70 bg-app/60 p-5">
+      <div className="absolute right-0 top-0 h-28 w-28 rounded-full bg-accent/10 blur-3xl" />
+      <div className="relative mb-5 flex items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-mist">Progress arc</p>
-          <p className="mt-1 text-base font-semibold tracking-[-0.03em] text-ink">
+          <p className="text-xs uppercase tracking-[0.2em] text-mist">Progress arc</p>
+          <p className="mt-1 text-lg font-semibold tracking-[-0.04em] text-ink">
             SGPA trend across recorded semesters
           </p>
         </div>
@@ -25,11 +26,11 @@ export function ProgressChart({ chart }: { chart: DashboardProgressChart }) {
           <div className="text-lg font-bold tracking-[-0.04em] text-ink">{chart.peak_label}</div>
         </div>
       </div>
-      <svg viewBox="0 0 340 150" className="h-44 w-full overflow-visible">
+      <svg viewBox="0 0 340 150" className="relative h-44 w-full overflow-visible">
         <defs>
           <linearGradient id="progressFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(15,139,141,0.28)" />
-            <stop offset="100%" stopColor="rgba(15,139,141,0.02)" />
+            <stop offset="0%" stopColor="rgba(14,128,123,0.3)" />
+            <stop offset="100%" stopColor="rgba(14,128,123,0.03)" />
           </linearGradient>
         </defs>
         <path d={chart.fill_path} fill="url(#progressFill)" />
@@ -37,7 +38,8 @@ export function ProgressChart({ chart }: { chart: DashboardProgressChart }) {
         <path d={chart.path} fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinecap="round" />
         {chart.coordinates.map((point) => (
           <g key={point.semester}>
-            <circle cx={point.x} cy={point.y} r="6" fill="var(--accent)" />
+            <circle cx={point.x} cy={point.y} r="7" fill="white" opacity="0.6" />
+            <circle cx={point.x} cy={point.y} r="4.5" fill="var(--accent)" />
             <text
               x={point.x}
               y={144}

@@ -1,10 +1,11 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerEnv } from "@/lib/env";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { ensureAppUserForSession } from "@/lib/queries/app-users";
 import { getSessionCookieCleanupNames, getSessionCookieName } from "@/lib/session-cookie";
+import { rateLimit } from "@/lib/rate-limiter";
 
 const sessionSchema = z.object({
   idToken: z.string().min(1)
@@ -28,6 +29,19 @@ function getErrorDetails(error: unknown) {
 
 export async function POST(request: Request) {
   try {
+    const head = await headers();
+    const ip = head.get("x-forwarded-for") || head.get("x-real-ip") || "anonymous";
+
+    // Enforce rate limit: 10 attempts per minute (60,000ms)
+    const limit = rateLimit(ip, { limit: 10, windowMs: 60000 });
+    if (!limit.success) {
+      logAuthDebug("rate_limit_exceeded", { ip });
+      return NextResponse.json(
+        { error: "too_many_requests", message: "Too many login attempts. Please try again after a minute." },
+        { status: 429 }
+      );
+    }
+
     const body = sessionSchema.parse(await request.json());
     logAuthDebug("request_received", { idTokenLength: body.idToken.length });
 
@@ -41,11 +55,21 @@ export async function POST(request: Request) {
     const sessionCookieName = getSessionCookieName();
 
     const decoded = await auth.verifyIdToken(body.idToken, true);
+    const email = decoded.email?.toLowerCase() || "";
+
     logAuthDebug("id_token_verified", {
       uid: decoded.uid,
-      email: decoded.email ?? null,
+      email: email,
       emailVerified: Boolean(decoded.email_verified)
     });
+
+    if (!email.endsWith("@glbitm.ac.in") && !email.endsWith("@scorlo.in")) {
+      logAuthDebug("domain_not_allowed", { uid: decoded.uid, email });
+      return NextResponse.json(
+        { error: "domain_restricted", message: "This email domain is not authorized." },
+        { status: 403 }
+      );
+    }
 
     if (!decoded.email_verified) {
       logAuthDebug("email_not_verified", { uid: decoded.uid, email: decoded.email ?? null });

@@ -3,28 +3,28 @@
 @tailwind utilities;
 
 :root {
-  --bg-app: #f4efe6;
-  --bg-surface: #fffaf2;
-  --bg-surface-muted: #eee5d8;
-  --bg-surface-elevated: #fffdf8;
-  --text-primary: #13212b;
-  --text-secondary: #4d5f6e;
-  --text-muted: #7d8b97;
-  --border-subtle: #e1d7c9;
-  --border-strong: #d1c3b3;
-  --accent: #147a7d;
-  --accent-strong: #0d5e62;
-  --accent-soft: #d7eeec;
+  --bg-app: #f2ede5;
+  --bg-surface: #fffaf3;
+  --bg-surface-muted: #e8dece;
+  --bg-surface-elevated: #fffdfa;
+  --text-primary: #102031;
+  --text-secondary: #536273;
+  --text-muted: #7d8894;
+  --border-subtle: #dacdb9;
+  --border-strong: #c5b49e;
+  --accent: #0e807b;
+  --accent-strong: #095c60;
+  --accent-soft: #d2eeea;
   --success: #1f8f5f;
-  --success-soft: #dff4e8;
-  --warning: #c0841a;
-  --warning-soft: #f9edd2;
-  --danger: #b54a36;
-  --danger-soft: #f7dfd9;
+  --success-soft: #def6e8;
+  --warning: #b57529;
+  --warning-soft: #f9ebd1;
+  --danger: #b34f39;
+  --danger-soft: #f8ddd6;
   --info: #2563eb;
   --info-soft: #dbeafe;
-  --shell-ink: #12202b;
-  --shell-ink-soft: #1a2f3c;
+  --shell-ink: #09111b;
+  --shell-ink-soft: #122234;
 }
 
 * {
@@ -35,9 +35,10 @@ html {
   min-height: 100%;
   color-scheme: light;
   background:
-    radial-gradient(circle at top left, rgba(20, 122, 125, 0.16), transparent 30%),
-    radial-gradient(circle at top right, rgba(192, 132, 26, 0.14), transparent 28%),
-    linear-gradient(180deg, rgba(255, 251, 243, 0.95) 0%, rgba(244, 239, 230, 1) 100%),
+    radial-gradient(circle at 12% 8%, rgba(14, 128, 123, 0.18), transparent 26%),
+    radial-gradient(circle at 88% 6%, rgba(181, 117, 41, 0.16), transparent 22%),
+    radial-gradient(circle at 50% 100%, rgba(9, 17, 27, 0.08), transparent 32%),
+    linear-gradient(180deg, #fdf8f0 0%, #f1eadf 100%),
     var(--bg-app);
 }
 
@@ -47,9 +48,10 @@ body {
   color: var(--text-primary);
   font-family: var(--font-ui), sans-serif;
   background:
-    radial-gradient(circle at 16% 12%, rgba(20, 122, 125, 0.1), transparent 18%),
-    radial-gradient(circle at 86% 10%, rgba(192, 132, 26, 0.1), transparent 22%),
-    linear-gradient(180deg, rgba(255, 252, 246, 0.3), rgba(255, 252, 246, 0));
+    radial-gradient(circle at 8% 10%, rgba(14, 128, 123, 0.14), transparent 20%),
+    radial-gradient(circle at 92% 14%, rgba(181, 117, 41, 0.13), transparent 22%),
+    radial-gradient(circle at 50% 0%, rgba(9, 17, 27, 0.05), transparent 36%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.26), rgba(255, 252, 246, 0));
   background-attachment: fixed;
 }
 
@@ -69,37 +71,48 @@ input {
 
 .shell-panel {
   background:
-    radial-gradient(circle at top left, rgba(20, 122, 125, 0.14), transparent 28%),
-    radial-gradient(circle at 100% 0%, rgba(192, 132, 26, 0.1), transparent 22%),
-    linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(249, 243, 234, 0.94) 100%);
+    radial-gradient(circle at top left, rgba(14, 128, 123, 0.16), transparent 30%),
+    radial-gradient(circle at 100% 0%, rgba(181, 117, 41, 0.14), transparent 24%),
+    linear-gradient(180deg, rgba(255, 253, 248, 0.88) 0%, rgba(252, 246, 237, 0.84) 100%);
+  backdrop-filter: blur(18px);
 }
 
 .ink-panel {
   background:
-    radial-gradient(circle at top right, rgba(20, 122, 125, 0.22), transparent 28%),
-    radial-gradient(circle at bottom left, rgba(192, 132, 26, 0.12), transparent 30%),
+    radial-gradient(circle at top right, rgba(14, 128, 123, 0.3), transparent 28%),
+    radial-gradient(circle at bottom left, rgba(181, 117, 41, 0.18), transparent 34%),
     linear-gradient(180deg, var(--shell-ink) 0%, var(--shell-ink-soft) 100%);
 }
 
 .page-shell {
   background:
-    linear-gradient(180deg, rgba(255, 252, 246, 0.52) 0%, rgba(244, 239, 230, 0.2) 100%);
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.32), transparent 32%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.46) 0%, rgba(242, 237, 229, 0.08) 100%);
 }
 
 .surface-panel {
   background:
-    radial-gradient(circle at top left, rgba(20, 122, 125, 0.1), transparent 26%),
-    linear-gradient(180deg, rgba(255, 250, 242, 0.98) 0%, rgba(250, 245, 236, 0.95) 100%);
+    radial-gradient(circle at top left, rgba(14, 128, 123, 0.13), transparent 26%),
+    radial-gradient(circle at 100% 0%, rgba(181, 117, 41, 0.08), transparent 22%),
+    linear-gradient(180deg, rgba(255, 251, 244, 0.98) 0%, rgba(249, 243, 233, 0.94) 100%);
+  backdrop-filter: blur(18px);
 }
 
 .surface-subtle {
   background:
-    linear-gradient(180deg, rgba(255, 250, 242, 0.84) 0%, rgba(239, 229, 216, 0.72) 100%);
+    linear-gradient(180deg, rgba(255, 250, 242, 0.82) 0%, rgba(232, 222, 206, 0.7) 100%);
+}
+
+.glass-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.52) 0%, rgba(255, 255, 255, 0.18) 100%),
+    rgba(255, 250, 243, 0.64);
+  backdrop-filter: blur(18px);
 }
 
 .soft-grid {
   background-image:
-    linear-gradient(rgba(17, 24, 39, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(17, 24, 39, 0.03) 1px, transparent 1px);
-  background-size: 28px 28px;
+    linear-gradient(rgba(16, 32, 49, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 32, 49, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
 }

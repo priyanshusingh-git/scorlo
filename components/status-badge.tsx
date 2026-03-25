@@ -1,11 +1,11 @@
 import { cn } from "@/lib/utils";
 
 const tones = {
-  accent: "bg-accent-soft text-accent-strong",
-  success: "bg-success-soft text-success",
-  warning: "bg-warning-soft text-warning",
-  danger: "bg-danger-soft text-danger",
-  info: "bg-info-soft text-info"
+  accent: "border border-accent/15 bg-accent-soft/90 text-accent-strong shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]",
+  success: "border border-success/15 bg-success-soft/90 text-success shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]",
+  warning: "border border-warning/15 bg-warning-soft/90 text-warning shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]",
+  danger: "border border-danger/15 bg-danger-soft/90 text-danger shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]",
+  info: "border border-info/15 bg-info-soft/90 text-info shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]"
 } as const;
 
 export function StatusBadge({
@@ -20,7 +20,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.08em] uppercase",
+        "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.12em] uppercase backdrop-blur",
         tones[tone],
         className
       )}

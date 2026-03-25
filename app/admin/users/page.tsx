@@ -19,10 +19,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
 
   return (
     <AdminShell eyebrow="Student user management" title="Student Users">
-      <SectionBlock
-        title="Search and filter"
-        description="Inspect student app accounts, linked roll numbers, stored DOB values, and latest request state."
-      >
+      <SectionBlock title="Search">
         <form className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <input
             type="text"
@@ -39,7 +36,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
         fallback={
           <AdminSectionFallback
             title="Student users"
-            description="Inspect student app accounts, linked roll numbers, stored DOB values, and latest request state."
+            description=""
             rows={4}
           />
         }
@@ -86,10 +83,6 @@ async function StudentUsersList({
               {user.latest_request_notes ? <InfoLine label="Request notes" value={user.latest_request_notes} /> : null}
             </div>
             <div className="space-y-4">
-              <div className="rounded-[1rem] bg-app/70 px-4 py-4 text-sm leading-7 text-slate">
-                Student users stay student-only. Admin accounts are managed separately in the
-                dedicated admin section and cannot be converted from student profiles.
-              </div>
               <AdminDangerButton
                 label="Delete user"
                 url={`/api/admin/users/${user.id}`}
@@ -102,7 +95,7 @@ async function StudentUsersList({
       ))}
 
       {users.length === 0 ? (
-        <SectionBlock title="No users found" description="Adjust the search term or role filter and try again.">
+        <SectionBlock title="No users found">
           <p className="text-sm text-slate">No matching app users were found.</p>
         </SectionBlock>
       ) : null}

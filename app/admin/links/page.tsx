@@ -25,10 +25,7 @@ export default async function AdminLinksPage({ searchParams }: PageProps) {
 
   return (
     <AdminShell eyebrow="Moderation" title="Links And Requests">
-      <SectionBlock
-        title="Search and filter"
-        description="Manage linked accounts and pending verification records in one place."
-      >
+      <SectionBlock title="Search">
         <form className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
           <input
             type="text"
@@ -63,25 +60,25 @@ export default async function AdminLinksPage({ searchParams }: PageProps) {
 
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Suspense
-          fallback={
-            <AdminSectionFallback
-              title="Student links"
-              description="Direct account-to-student mappings."
-              rows={3}
-            />
-          }
+        fallback={
+          <AdminSectionFallback
+            title="Student links"
+            description=""
+            rows={3}
+          />
+        }
         >
           <LinksSection moderationPromise={moderationPromise} />
         </Suspense>
 
         <Suspense
-          fallback={
-            <AdminSectionFallback
-              title="Data requests"
-              description="Pending or historical request rows that can be edited, approved, rejected, or deleted."
-              rows={3}
-            />
-          }
+        fallback={
+          <AdminSectionFallback
+            title="Data requests"
+            description=""
+            rows={3}
+          />
+        }
         >
           <RequestsSection moderationPromise={moderationPromise} />
         </Suspense>
@@ -100,7 +97,7 @@ async function LinksSection({
   const [links] = await moderationPromise;
 
   return (
-    <SectionBlock title="Student links" description="Direct account-to-student mappings.">
+    <SectionBlock title="Student links">
       <div className="space-y-4">
         {links.map((link) => (
           <div key={link.id} className="rounded-[1.2rem] border border-line bg-surface px-4 py-4">
@@ -138,10 +135,7 @@ async function RequestsSection({
   const [, requests] = await moderationPromise;
 
   return (
-    <SectionBlock
-      title="Data requests"
-      description="Pending or historical request rows that can be edited, approved, rejected, or deleted."
-    >
+    <SectionBlock title="Data requests">
       <div className="space-y-4">
         {requests.map((request) => (
           <div key={request.id} className="rounded-[1.2rem] border border-line bg-surface px-4 py-4">

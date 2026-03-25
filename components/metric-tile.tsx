@@ -11,7 +11,7 @@ const toneMap = {
 
 export function MetricTile({ metric }: { metric: DashboardMetricTile }) {
   return (
-    <div className="relative min-h-36 overflow-hidden rounded-[1.45rem] border border-line bg-surface p-4 shadow-soft">
+    <div className="surface-panel relative min-h-40 overflow-hidden rounded-[1.6rem] border border-white/75 p-4 shadow-[0_24px_60px_-38px_rgba(16,32,49,0.45)]">
       <div
         className={cn(
           "absolute inset-x-0 top-0 h-1.5",
@@ -21,12 +21,13 @@ export function MetricTile({ metric }: { metric: DashboardMetricTile }) {
           metric.tone === "danger" && "bg-danger"
         )}
       />
-      <div className="mb-6 flex items-start justify-between gap-3">
-        <div className="text-xs font-medium uppercase tracking-[0.18em] text-mist">{metric.label}</div>
+      <div className="absolute -right-6 top-6 h-20 w-20 rounded-full bg-white/40 blur-2xl" />
+      <div className="relative mb-8 flex items-start justify-between gap-3">
+        <div className="text-xs font-medium uppercase tracking-[0.2em] text-mist">{metric.label}</div>
         <StatusBadge tone={toneMap[metric.tone]}>Live</StatusBadge>
       </div>
-      <div className="text-[2.15rem] font-bold tracking-[-0.08em] text-ink">{metric.value}</div>
-      <p className="mt-2 text-sm leading-6 text-slate">{metric.hint}</p>
+      <div className="relative text-[2.55rem] font-bold tracking-[-0.09em] text-ink">{metric.value}</div>
+      <p className="relative mt-3 max-w-xs text-sm leading-6 text-slate">{metric.hint}</p>
     </div>
   );
 }

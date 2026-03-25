@@ -71,14 +71,13 @@ function QuickActionsSection() {
   return (
     <SectionBlock
       title="Quick actions"
-      description="Jump directly into the admin areas that change account, link, and academic state."
     >
       <div className="space-y-3">
         <QuickLink href="/admin/admins" label="Manage admins" description="View admin-only accounts. Admin profiles are separate from student users." />
-        <QuickLink href="/admin/users" label="Manage users" description="Inspect student accounts, linked state, and delete student-side app accounts." />
-        <QuickLink href="/admin/links" label="Moderate links" description="Approve, reject, edit, or remove student link and data request records." />
+        <QuickLink href="/admin/users" label="Manage users" description="Review student accounts, linked state, and account cleanup actions." />
+        <QuickLink href="/admin/links" label="Moderate links" description="Review, approve, reject, or update student link records." />
         <QuickLink href="/admin/students" label="Explore students" description="Inspect live academic records and reassign links manually." />
-        <QuickLink href="/admin/maintenance" label="Maintenance" description="Rebuild the ranking cache and inspect recent internal actions." />
+        <QuickLink href="/admin/maintenance" label="Maintenance" description="Handle rebuilds, cleanup actions, and recent operations." />
       </div>
     </SectionBlock>
   );
@@ -94,7 +93,6 @@ async function RecentLoginsSection({
   return (
     <SectionBlock
       title="Recent login activity"
-      description="The most recent successful app sessions from Firebase-authenticated users."
     >
       <div className="space-y-3">
         {overview.recentLogins.map((user) => (
@@ -126,7 +124,6 @@ async function RecentAuditLogsSection({
   return (
     <SectionBlock
       title="Recent admin actions"
-      description="Every admin mutation is written to the audit log."
     >
       <div className="space-y-3">
         {overview.recentAuditLogs.length > 0 ? (
@@ -154,9 +151,10 @@ async function RecentAuditLogsSection({
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-[1.35rem] border border-line bg-surface px-4 py-4 shadow-soft">
-      <div className="text-[11px] uppercase tracking-[0.16em] text-mist">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-ink">{value}</div>
+    <div className="surface-panel relative overflow-hidden rounded-[1.6rem] border border-white/70 px-4 py-5 shadow-[0_22px_55px_-38px_rgba(16,32,49,0.42)]">
+      <div className="absolute -right-6 top-0 h-20 w-20 rounded-full bg-accent/10 blur-3xl" />
+      <div className="relative text-[11px] uppercase tracking-[0.18em] text-mist">{label}</div>
+      <div className="relative mt-3 text-[2.45rem] font-semibold tracking-[-0.08em] text-ink">{value}</div>
     </div>
   );
 }
@@ -174,7 +172,7 @@ function QuickLink({
     <Link
       href={href}
       prefetch
-      className="block rounded-[1.2rem] border border-line bg-surface px-4 py-4 transition hover:border-accent/40 hover:bg-app/70"
+      className="glass-card block rounded-[1.35rem] border border-white/70 px-4 py-4 transition hover:-translate-y-0.5 hover:border-accent/30"
     >
       <div className="text-sm font-semibold text-ink">{label}</div>
       <div className="mt-1 text-sm leading-6 text-slate">{description}</div>

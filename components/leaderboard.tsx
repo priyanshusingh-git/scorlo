@@ -29,11 +29,12 @@ function RankCard({
   percentileLabel: string;
 }) {
   return (
-    <div className="rounded-[1.4rem] border border-line bg-surface px-4 py-4">
-      <div className="text-[11px] uppercase tracking-[0.16em] text-mist">{label}</div>
+    <div className="surface-panel relative overflow-hidden rounded-[1.6rem] border border-white/70 px-4 py-5 shadow-[0_22px_55px_-38px_rgba(16,32,49,0.42)]">
+      <div className="absolute -right-8 top-0 h-24 w-24 rounded-full bg-accent/10 blur-3xl" />
+      <div className="relative text-[11px] uppercase tracking-[0.18em] text-mist">{label}</div>
       <div className="mt-3 flex items-end justify-between gap-4">
         <div>
-          <div className="text-2xl font-semibold text-ink">{rank ? `#${rank}` : "--"}</div>
+          <div className="text-[2.4rem] font-semibold tracking-[-0.08em] text-ink">{rank ? `#${rank}` : "--"}</div>
           <div className="mt-1 text-sm text-slate">
             {totalStudents > 0 ? `${totalStudents} students` : "Cohort unavailable"}
           </div>
@@ -64,7 +65,7 @@ function SemesterRankRow({
   percentileLabel: string;
 }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[1.25rem] border border-line bg-surface px-4 py-3">
+    <div className="glass-card grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[1.35rem] border border-white/70 px-4 py-4">
       <div className="min-w-0">
         <div className="text-sm font-semibold text-ink">{label}</div>
         <div className="mt-1 text-xs text-slate">
@@ -121,9 +122,9 @@ export function LeaderboardTabs({
     <div className="space-y-5">
       <SectionBlock
         title="My ranks"
-        description="Your rank is fixed until the admin updates academic records and rebuilds the ranking cache."
+        description="A quick view of where you stand across your current academic cohort."
       >
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-5 flex flex-wrap gap-2">
           <StatusBadge tone="warning">{currentScope.label}</StatusBadge>
           {rankings.anchor.passing_year ? <StatusBadge tone="info">Batch {rankings.anchor.passing_year}</StatusBadge> : null}
           <StatusBadge tone="accent">{currentScope.total_students} students</StatusBadge>
@@ -140,30 +141,30 @@ export function LeaderboardTabs({
           className="space-y-5"
         >
           <Tabs.List
-            className={`grid grid-cols-2 gap-2 rounded-[1.4rem] bg-surface-muted p-1 transition xl:max-w-md ${
+            className={`glass-card grid grid-cols-2 gap-2 rounded-[1.5rem] border border-white/70 p-1 transition xl:max-w-md ${
               isPending ? "opacity-80" : ""
             }`}
           >
             <Tabs.Trigger
               value="branch"
               disabled={isPending}
-              className="rounded-[1rem] px-3 py-2 text-xs font-semibold text-slate data-[state=active]:bg-ink data-[state=active]:text-white"
+              className="rounded-[1.1rem] px-3 py-2.5 text-xs font-semibold tracking-[0.14em] text-slate data-[state=active]:bg-ink data-[state=active]:text-white"
             >
               Branch Wise
             </Tabs.Trigger>
             <Tabs.Trigger
               value="batch"
               disabled={isPending}
-              className="rounded-[1rem] px-3 py-2 text-xs font-semibold text-slate data-[state=active]:bg-ink data-[state=active]:text-white"
+              className="rounded-[1.1rem] px-3 py-2.5 text-xs font-semibold tracking-[0.14em] text-slate data-[state=active]:bg-ink data-[state=active]:text-white"
             >
               Batch Wise
             </Tabs.Trigger>
           </Tabs.List>
 
-          <div className="rounded-[1.3rem] bg-app/70 px-4 py-4">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Cohort</div>
-            <div className="mt-2 text-lg font-semibold text-ink">{currentScope.summary_label || "Ranking cohort"}</div>
-            <div className="mt-1 text-sm text-slate">{currentScope.description}</div>
+          <div className="glass-card rounded-[1.6rem] border border-white/70 px-5 py-5">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-mist">Cohort signature</div>
+            <div className="mt-2 text-xl font-semibold tracking-[-0.04em] text-ink">{currentScope.summary_label || "Ranking cohort"}</div>
+            <div className="mt-2 text-sm leading-7 text-slate">{currentScope.description}</div>
           </div>
 
           <div className={`grid grid-cols-1 gap-4 transition lg:grid-cols-3 ${isPending ? "opacity-80" : ""}`}>
@@ -187,7 +188,7 @@ export function LeaderboardTabs({
 
       <SectionBlock
         title="Semester ranks"
-        description="Semester-wise SGPA ranks are also precomputed and stored for your current cohort."
+        description="A semester-by-semester view of your standing."
       >
         <div className={`space-y-3 transition ${isPending ? "opacity-80" : ""}`}>
           {currentScope.semester_metrics.length > 0 ? (

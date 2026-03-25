@@ -2,6 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { cache } from "react";
+import { redirect } from "next/navigation";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { ensureAppUserForSession } from "@/lib/queries/app-users";
 import { getSessionCookieName } from "@/lib/session-cookie";
@@ -28,3 +29,23 @@ export const getCurrentSessionUser = cache(async () => {
     return null;
   }
 });
+
+export async function requireSessionUser() {
+  const user = await getCurrentSessionUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  return user;
+}
+
+export async function requireStudentSession() {
+  const user = await requireSessionUser();
+
+  if (user.role === "admin") {
+    redirect("/admin");
+  }
+
+  return user;
+}

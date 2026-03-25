@@ -97,10 +97,9 @@ export function LinkStudentForm({
         {email ? <StatusBadge tone="info">{email}</StatusBadge> : null}
       </div>
 
-      <div className="rounded-[1.25rem] bg-app/70 px-4 py-4 text-sm leading-7 text-slate">
-        Enter your AKTU roll number and date of birth in `DD-MM-YYYY` format. If the roll number
-        exists in the academic database, your account will be linked immediately and the DOB will
-        be stored in the database. Otherwise it will move to admin verification.
+      <div className="glass-card rounded-[1.35rem] border border-white/70 px-4 py-4 text-sm leading-7 text-slate">
+        Enter your AKTU roll number and date of birth in `DD-MM-YYYY` format to connect your
+        academic profile.
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -110,7 +109,7 @@ export function LinkStudentForm({
           value={rollNo}
           onChange={(event) => setRollNo(event.target.value)}
           placeholder="AKTU roll number"
-          className="w-full rounded-[1.2rem] border border-line bg-surface-muted/70 px-4 py-4 text-sm text-ink outline-none placeholder:text-mist"
+          className="glass-card w-full rounded-[1.25rem] border border-white/70 px-4 py-4 text-sm text-ink outline-none placeholder:text-mist"
           minLength={8}
           maxLength={32}
           required
@@ -121,14 +120,14 @@ export function LinkStudentForm({
           value={dob}
           onChange={(event) => setDob(event.target.value)}
           placeholder="DD-MM-YYYY"
-          className="w-full rounded-[1.2rem] border border-line bg-surface-muted/70 px-4 py-4 text-sm text-ink outline-none placeholder:text-mist"
+          className="glass-card w-full rounded-[1.25rem] border border-white/70 px-4 py-4 text-sm text-ink outline-none placeholder:text-mist"
           pattern="\d{2}-\d{2}-\d{4}"
           required
         />
         <button
           type="submit"
           disabled={pending}
-          className="flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-accent-strong px-4 py-4 text-sm font-semibold text-white shadow-soft disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-[1.25rem] bg-ink px-4 py-4 text-sm font-semibold text-white shadow-[0_24px_45px_-28px_rgba(9,17,27,0.88)] disabled:opacity-60"
         >
           {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
           {pending ? "Linking..." : link ? "Update academic link" : "Link academic record"}
@@ -137,7 +136,7 @@ export function LinkStudentForm({
       </form>
 
       {link?.roll_no ? (
-        <div className="rounded-[1.2rem] border border-line bg-surface/80 px-4 py-4 text-sm leading-7 text-slate">
+        <div className="glass-card rounded-[1.25rem] border border-white/70 px-4 py-4 text-sm leading-7 text-slate">
           Current roll number on this account: <span className="font-semibold text-ink">{link.roll_no}</span>
         </div>
       ) : null}

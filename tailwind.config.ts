@@ -35,12 +35,27 @@ const config: Config = {
         display: ["var(--font-display)"]
       },
       borderRadius: {
+        inner: "1.25rem",
         scorlo: "1.5rem",
         shell: "2rem"
       },
       boxShadow: {
         scorlo: "0 16px 36px rgba(17, 24, 39, 0.08)",
         soft: "0 8px 20px rgba(17, 24, 39, 0.06)"
+      },
+      animation: {
+        "pulse-slow": "pulse-slow 15s ease-in-out infinite",
+        "pulse-reverse": "pulse-reverse 20s ease-in-out infinite"
+      },
+      keyframes: {
+        "pulse-slow": {
+          "0%, 100%": { transform: "scale(1) translate(0, 0)", opacity: "0.5" },
+          "50%": { transform: "scale(1.1) translate(20px, 10px)", opacity: "0.7" }
+        },
+        "pulse-reverse": {
+          "0%, 100%": { transform: "scale(1) translate(0, 0)", opacity: "0.3" },
+          "50%": { transform: "scale(1.05) translate(-20px, -10px)", opacity: "0.5" }
+        }
       }
     }
   },
