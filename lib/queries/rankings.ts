@@ -180,7 +180,11 @@ async function getRankedRows(
         SELECT
           s.id AS student_id,
           s.name,
-          sm.overall_percentage::text AS metric_value
+          sm.overall_percentage::text AS metric_value,
+          sm.cgpa,
+          sm.active_backs,
+          sm.latest_sgpa,
+          s.roll_no
         FROM students s
         JOIN student_metrics sm ON sm.student_id = s.id
         WHERE COALESCE(s.institute_name, '') = COALESCE(${student.institute_name}, '')
@@ -194,7 +198,14 @@ async function getRankedRows(
           student_id,
           name,
           metric_value,
-          DENSE_RANK() OVER (ORDER BY metric_value::numeric DESC) AS rank,
+          RANK() OVER (
+            ORDER BY 
+              metric_value::numeric DESC, 
+              cgpa DESC NULLS LAST, 
+              active_backs ASC, 
+              latest_sgpa DESC NULLS LAST, 
+              roll_no ASC
+          ) AS rank,
           COUNT(*) OVER () AS total_count
         FROM scoped
       )
@@ -210,7 +221,11 @@ async function getRankedRows(
         SELECT
           s.id AS student_id,
           s.name,
-          sm.overall_percentage::text AS metric_value
+          sm.overall_percentage::text AS metric_value,
+          sm.cgpa,
+          sm.active_backs,
+          sm.latest_sgpa,
+          s.roll_no
         FROM students s
         JOIN student_metrics sm ON sm.student_id = s.id
         WHERE COALESCE(s.institute_name, '') = COALESCE(${student.institute_name}, '')
@@ -222,7 +237,14 @@ async function getRankedRows(
           student_id,
           name,
           metric_value,
-          DENSE_RANK() OVER (ORDER BY metric_value::numeric DESC) AS rank,
+          RANK() OVER (
+            ORDER BY 
+              metric_value::numeric DESC, 
+              cgpa DESC NULLS LAST, 
+              active_backs ASC, 
+              latest_sgpa DESC NULLS LAST, 
+              roll_no ASC
+          ) AS rank,
           COUNT(*) OVER () AS total_count
         FROM scoped
       )
@@ -238,7 +260,11 @@ async function getRankedRows(
         SELECT
           s.id AS student_id,
           s.name,
-          sm.cgpa::text AS metric_value
+          sm.cgpa::text AS metric_value,
+          sm.overall_percentage,
+          sm.active_backs,
+          sm.latest_sgpa,
+          s.roll_no
         FROM students s
         JOIN student_metrics sm ON sm.student_id = s.id
         WHERE COALESCE(s.institute_name, '') = COALESCE(${student.institute_name}, '')
@@ -252,7 +278,14 @@ async function getRankedRows(
           student_id,
           name,
           metric_value,
-          DENSE_RANK() OVER (ORDER BY metric_value::numeric DESC) AS rank,
+          RANK() OVER (
+            ORDER BY 
+              metric_value::numeric DESC, 
+              overall_percentage DESC NULLS LAST, 
+              active_backs ASC, 
+              latest_sgpa DESC NULLS LAST, 
+              roll_no ASC
+          ) AS rank,
           COUNT(*) OVER () AS total_count
         FROM scoped
       )
@@ -268,7 +301,11 @@ async function getRankedRows(
         SELECT
           s.id AS student_id,
           s.name,
-          sm.cgpa::text AS metric_value
+          sm.cgpa::text AS metric_value,
+          sm.overall_percentage,
+          sm.active_backs,
+          sm.latest_sgpa,
+          s.roll_no
         FROM students s
         JOIN student_metrics sm ON sm.student_id = s.id
         WHERE COALESCE(s.institute_name, '') = COALESCE(${student.institute_name}, '')
@@ -280,7 +317,14 @@ async function getRankedRows(
           student_id,
           name,
           metric_value,
-          DENSE_RANK() OVER (ORDER BY metric_value::numeric DESC) AS rank,
+          RANK() OVER (
+            ORDER BY 
+              metric_value::numeric DESC, 
+              overall_percentage DESC NULLS LAST, 
+              active_backs ASC, 
+              latest_sgpa DESC NULLS LAST, 
+              roll_no ASC
+          ) AS rank,
           COUNT(*) OVER () AS total_count
         FROM scoped
       )
@@ -292,13 +336,22 @@ async function getRankedRows(
 
   if (scope.key === "branch") {
     return (await sql`
-      WITH scoped AS (
+      WITH latest_marks AS (
+        SELECT DISTINCT ON (student_id) student_id, marks_obtained
+        FROM result_sessions
+        ORDER BY student_id, created_at DESC
+      ),
+      scoped AS (
         SELECT
           s.id AS student_id,
           s.name,
-          sm.latest_sgpa::text AS metric_value
+          sm.latest_sgpa::text AS metric_value,
+          lm.marks_obtained,
+          sm.active_backs,
+          s.roll_no
         FROM students s
         JOIN student_metrics sm ON sm.student_id = s.id
+        LEFT JOIN latest_marks lm ON lm.student_id = s.id
         WHERE COALESCE(s.institute_name, '') = COALESCE(${student.institute_name}, '')
           AND COALESCE(s.branch_name, '') = COALESCE(${student.branch_name}, '')
           AND COALESCE(s.course_name, '') = COALESCE(${student.course_name}, '')
@@ -310,7 +363,13 @@ async function getRankedRows(
           student_id,
           name,
           metric_value,
-          DENSE_RANK() OVER (ORDER BY metric_value::numeric DESC) AS rank,
+          RANK() OVER (
+            ORDER BY 
+              metric_value::numeric DESC, 
+              marks_obtained DESC NULLS LAST, 
+              active_backs ASC, 
+              roll_no ASC
+          ) AS rank,
           COUNT(*) OVER () AS total_count
         FROM scoped
       )
@@ -321,13 +380,22 @@ async function getRankedRows(
   }
 
   return (await sql`
-    WITH scoped AS (
+    WITH latest_marks AS (
+      SELECT DISTINCT ON (student_id) student_id, marks_obtained
+      FROM result_sessions
+      ORDER BY student_id, created_at DESC
+    ),
+    scoped AS (
       SELECT
         s.id AS student_id,
         s.name,
-        sm.latest_sgpa::text AS metric_value
+        sm.latest_sgpa::text AS metric_value,
+        lm.marks_obtained,
+        sm.active_backs,
+        s.roll_no
       FROM students s
       JOIN student_metrics sm ON sm.student_id = s.id
+      LEFT JOIN latest_marks lm ON lm.student_id = s.id
       WHERE COALESCE(s.institute_name, '') = COALESCE(${student.institute_name}, '')
         AND s.passing_year IS NOT DISTINCT FROM ${student.passing_year}
         AND sm.latest_sgpa IS NOT NULL
@@ -337,7 +405,13 @@ async function getRankedRows(
         student_id,
         name,
         metric_value,
-        DENSE_RANK() OVER (ORDER BY metric_value::numeric DESC) AS rank,
+        RANK() OVER (
+          ORDER BY 
+            metric_value::numeric DESC, 
+            marks_obtained DESC NULLS LAST, 
+            active_backs ASC, 
+            roll_no ASC
+        ) AS rank,
         COUNT(*) OVER () AS total_count
       FROM scoped
     )
