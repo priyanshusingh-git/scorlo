@@ -1,5 +1,6 @@
 import "server-only";
 
+import { computeAktuWeightedCgpa, formatMetric, parseNumericMetric } from "@/lib/aktu-metrics";
 import { getSql } from "@/lib/db";
 
 export type DashboardPayload = {
@@ -54,17 +55,6 @@ type SemesterRow = Omit<DashboardPayload["semesters"][number], "subjects">;
 type SubjectRow = DashboardPayload["semesters"][number]["subjects"][number] & {
   semester_result_id: number;
 };
-
-function parseNumericValue(value: string | null) {
-  if (value === null) return null;
-
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function toFixedMetric(value: number | null) {
-  return value === null ? null : value.toFixed(2);
-}
 
 export async function getDashboardForStudent(studentId: number): Promise<DashboardPayload | null> {
   const sql = getSql();
@@ -176,21 +166,15 @@ export async function getDashboardForStudent(studentId: number): Promise<Dashboa
   }
 
   const latestSgpa =
-    parseNumericValue(metricRows[0]?.latest_sgpa ?? null) ??
-    parseNumericValue(semesters[0]?.sgpa ?? null);
-  const cgpaValues = semesters
-    .map((semester) => parseNumericValue(semester.sgpa))
-    .filter((value): value is number => value !== null);
-  const cgpa =
-    cgpaValues.length === 0
-      ? null
-      : cgpaValues.reduce((sum, value) => sum + value, 0) / cgpaValues.length;
+    parseNumericMetric(metricRows[0]?.latest_sgpa ?? null) ??
+    parseNumericMetric(semesters[0]?.sgpa ?? null);
+  const cgpa = computeAktuWeightedCgpa(semesters);
 
   return {
     student,
     metrics: {
-      latest_sgpa: toFixedMetric(latestSgpa),
-      cgpa: toFixedMetric(cgpa),
+      latest_sgpa: formatMetric(latestSgpa),
+      cgpa: formatMetric(cgpa),
       overall_percentage: metricRows[0]?.overall_percentage ?? null,
       active_backs: metricRows[0]?.active_backs ?? 0,
       cleared_backs: metricRows[0]?.cleared_backs ?? 0

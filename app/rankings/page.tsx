@@ -16,7 +16,7 @@ export default async function RankingsPage() {
   }
 
   return (
-    <AppShell eyebrow="Anonymous competition" title="Rankings">
+    <AppShell eyebrow="Personal academic standing" title="My Ranks">
       <LeaderboardTabs rankings={rankings} />
     </AppShell>
   );

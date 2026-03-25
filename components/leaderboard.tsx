@@ -5,58 +5,16 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as Tabs from "@radix-ui/react-tabs";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
-import { cn } from "@/lib/utils";
-import type {
-  RankingMetric,
-  RankingMetricKey,
-  RankingScope,
-  RankingScopeKey,
-  RankingsPayload
-} from "@/lib/queries/rankings";
+import type { RankingMetricKey, RankingScope, RankingScopeKey, RankingsPayload } from "@/lib/queries/rankings";
 
 const DEFAULT_SCOPE: RankingScopeKey = "branch";
-const DEFAULT_METRIC: RankingMetricKey = "percentage";
 
 function isScopeKey(value: string | null): value is RankingScopeKey {
   return value === "branch" || value === "batch";
 }
 
-function isMetricKey(value: string | null): value is RankingMetricKey {
-  return value === "percentage" || value === "cgpa" || value === "latest";
-}
-
-function LeaderboardList({ entries }: { entries: RankingMetric["entries"] }) {
-  return (
-    <div className="space-y-2">
-      <div className="hidden grid-cols-[88px_minmax(0,1fr)_110px] gap-4 rounded-[1rem] px-4 pb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-mist md:grid">
-        <div>Rank</div>
-        <div>Student</div>
-        <div className="text-right">Score</div>
-      </div>
-      {entries.map((entry) => (
-        <div
-          key={`${entry.rank}-${entry.student_id}`}
-          className={cn(
-            "grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-[1.25rem] border px-4 py-3 md:grid-cols-[88px_minmax(0,1fr)_110px] md:gap-4",
-            entry.self ? "border-warning bg-warning-soft" : "border-line bg-surface"
-          )}
-        >
-          <div className="flex items-center gap-3">
-            <div className={cn("text-sm font-bold", entry.self ? "text-warning" : "text-ink")}>
-              #{entry.rank}
-            </div>
-          </div>
-          <div className="min-w-0">
-            <div className="truncate text-sm font-medium text-ink md:text-[15px]">{entry.name}</div>
-            <div className="mt-0.5 text-xs text-mist md:hidden">
-              {entry.self ? "Your visible row" : "Peer identity masked"}
-            </div>
-          </div>
-          <div className="text-right text-sm font-semibold text-ink md:text-[15px]">{entry.score}</div>
-        </div>
-      ))}
-    </div>
-  );
+function formatPercentile(value: number | null) {
+  return value ? `Top ${value}%` : "Percentile unavailable";
 }
 
 function getScopeLabel(scope: RankingScope) {
@@ -71,6 +29,70 @@ function getScopeLabel(scope: RankingScope) {
     .join(" • ");
 }
 
+function RankCard({
+  label,
+  scoreLabel,
+  score,
+  rank,
+  totalStudents,
+  percentile
+}: {
+  label: string;
+  scoreLabel: string;
+  score: string | null;
+  rank: number | null;
+  totalStudents: number;
+  percentile: number | null;
+}) {
+  return (
+    <div className="rounded-[1.4rem] border border-line bg-surface px-4 py-4">
+      <div className="text-[11px] uppercase tracking-[0.16em] text-mist">{label}</div>
+      <div className="mt-3 flex items-end justify-between gap-4">
+        <div>
+          <div className="text-2xl font-semibold text-ink">{rank ? `#${rank}` : "--"}</div>
+          <div className="mt-1 text-sm text-slate">
+            {totalStudents > 0 ? `${totalStudents} students` : "Cohort unavailable"}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-mist">{scoreLabel}</div>
+          <div className="mt-1 text-lg font-semibold text-ink">{score ?? "--"}</div>
+        </div>
+      </div>
+      <div className="mt-3">
+        <StatusBadge tone="accent">{formatPercentile(percentile)}</StatusBadge>
+      </div>
+    </div>
+  );
+}
+
+function SemesterRankRow({
+  label,
+  score,
+  rank,
+  totalStudents,
+  percentile
+}: {
+  label: string;
+  score: string | null;
+  rank: number | null;
+  totalStudents: number;
+  percentile: number | null;
+}) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[1.25rem] border border-line bg-surface px-4 py-3">
+      <div className="min-w-0">
+        <div className="text-sm font-semibold text-ink">{label}</div>
+        <div className="mt-1 text-xs text-slate">
+          {score ? `SGPA ${score}` : "SGPA unavailable"} • {rank ? `#${rank}` : "Rank unavailable"} •{" "}
+          {totalStudents > 0 ? `${totalStudents} students` : "Cohort unavailable"}
+        </div>
+      </div>
+      <StatusBadge tone="warning">{formatPercentile(percentile)}</StatusBadge>
+    </div>
+  );
+}
+
 export function LeaderboardTabs({
   rankings
 }: {
@@ -80,21 +102,18 @@ export function LeaderboardTabs({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const rawScope = searchParams.get("scope");
-  const rawMetric = searchParams.get("metric");
   const scopeKey: RankingScopeKey = isScopeKey(rawScope) ? rawScope : DEFAULT_SCOPE;
-  const metricKey: RankingMetricKey = isMetricKey(rawMetric) ? rawMetric : DEFAULT_METRIC;
-
   const currentScope = rankings.scopes[scopeKey];
-  const currentMetric = currentScope.metrics[metricKey];
   const currentScopeLabel = getScopeLabel(currentScope) || "Ranking cohort";
+  const metricOrder: RankingMetricKey[] = ["percentage", "cgpa", "latest"];
   const updateSearchParam = useMemo(
-    () => (key: "scope" | "metric", value: string, defaultValue: string) => {
+    () => (value: string) => {
       const nextParams = new URLSearchParams(searchParams.toString());
 
-      if (value === defaultValue) {
-        nextParams.delete(key);
+      if (value === DEFAULT_SCOPE) {
+        nextParams.delete("scope");
       } else {
-        nextParams.set(key, value);
+        nextParams.set("scope", value);
       }
 
       const nextQuery = nextParams.toString();
@@ -108,108 +127,87 @@ export function LeaderboardTabs({
   );
 
   return (
-    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(260px,0.78fr)_minmax(0,1.22fr)]">
+    <div className="space-y-5">
       <SectionBlock
-        title="Your position"
-        description="The summary and leaderboard now stay in sync with the selected scope and metric."
-        className="xl:sticky xl:top-8 xl:self-start"
+        title="My ranks"
+        description="Your rank is fixed until the admin updates academic records and rebuilds the ranking cache."
       >
         <div className="mb-4 flex flex-wrap gap-2">
-          <StatusBadge tone="warning">
-            {currentMetric.self_rank ? `#${currentMetric.self_rank} ${currentScope.key} rank` : "Rank unavailable"}
-          </StatusBadge>
-          <StatusBadge tone="accent">
-            {currentMetric.percentile ? `Top ${currentMetric.percentile}%` : "Percentile unavailable"}
-          </StatusBadge>
+          <StatusBadge tone="warning">{currentScope.label}</StatusBadge>
           {rankings.anchor.passing_year ? <StatusBadge tone="info">Batch {rankings.anchor.passing_year}</StatusBadge> : null}
+          <StatusBadge tone="accent">{currentScope.total_students} students</StatusBadge>
         </div>
-        <p className="text-sm leading-7 text-slate">
-          Your own row stays visible. Everyone else is masked by default, and the selected score here is the
-          same one used in the table on the right.
-        </p>
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-[1.2rem] bg-app/70 px-4 py-4">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Scope</div>
-            <div className="mt-2 text-lg font-semibold text-ink">{currentScope.label}</div>
-            <div className="mt-1 text-sm text-slate">{currentScope.total_students} students</div>
-          </div>
-          <div className="rounded-[1.2rem] bg-app/70 px-4 py-4">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-mist">{currentMetric.score_label}</div>
-            <div className="mt-2 text-lg font-semibold text-ink">{currentMetric.self_score ?? "--"}</div>
-            <div className="mt-1 text-sm text-slate">{currentScopeLabel}</div>
-          </div>
-        </div>
-      </SectionBlock>
 
-      <SectionBlock
-        title="Leaderboard"
-        description="Choose the scope first, then switch the metric. The table and summary will move together."
-      >
         <Tabs.Root
           value={scopeKey}
           onValueChange={(value) => {
             if (!isScopeKey(value)) return;
-            updateSearchParam("scope", value, DEFAULT_SCOPE);
+            updateSearchParam(value);
           }}
-          className="space-y-4"
+          className="space-y-5"
         >
           <Tabs.List className="grid grid-cols-2 gap-2 rounded-[1.4rem] bg-surface-muted p-1 xl:max-w-md">
-            {[
-              { value: "branch", label: "Branch Wise" },
-              { value: "batch", label: "Batch Wise" }
-            ].map((tab) => (
-              <Tabs.Trigger
-                key={tab.value}
-                value={tab.value}
-                className="rounded-[1rem] px-3 py-2 text-xs font-semibold text-slate data-[state=active]:bg-ink data-[state=active]:text-white"
-              >
-                {tab.label}
-              </Tabs.Trigger>
-            ))}
+            <Tabs.Trigger
+              value="branch"
+              className="rounded-[1rem] px-3 py-2 text-xs font-semibold text-slate data-[state=active]:bg-ink data-[state=active]:text-white"
+            >
+              Branch Wise
+            </Tabs.Trigger>
+            <Tabs.Trigger
+              value="batch"
+              className="rounded-[1rem] px-3 py-2 text-xs font-semibold text-slate data-[state=active]:bg-ink data-[state=active]:text-white"
+            >
+              Batch Wise
+            </Tabs.Trigger>
           </Tabs.List>
 
-          <Tabs.Root
-            value={metricKey}
-            onValueChange={(value) => {
-              if (!isMetricKey(value)) return;
-              updateSearchParam("metric", value, DEFAULT_METRIC);
-            }}
-            className="space-y-4"
-          >
-            <Tabs.List className="grid grid-cols-3 gap-2 rounded-[1.4rem] bg-surface-muted p-1 xl:max-w-2xl">
-              {[
-                { value: "percentage", label: "Percentage" },
-                { value: "cgpa", label: "CGPA" },
-                { value: "latest", label: "Latest SGPA" }
-              ].map((tab) => (
-                <Tabs.Trigger
-                  key={tab.value}
-                  value={tab.value}
-                  className="rounded-[1rem] px-3 py-2 text-xs font-semibold text-slate data-[state=active]:bg-ink data-[state=active]:text-white"
-                >
-                  {tab.label}
-                </Tabs.Trigger>
-              ))}
-            </Tabs.List>
-          </Tabs.Root>
-
-          <div className="flex flex-wrap gap-2">
-            <span className="rounded-full bg-accent-soft px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-strong">
-              {currentScope.label}
-            </span>
-            <span className="rounded-full bg-surface-muted px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-mist">
-              {currentScopeLabel}
-            </span>
-            <span className="rounded-full bg-surface-muted px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-mist">
-              {currentScope.total_students} students
-            </span>
-            <span className="rounded-full bg-warning-soft px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-warning">
-              You highlighted
-            </span>
+          <div className="rounded-[1.3rem] bg-app/70 px-4 py-4">
+            <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Cohort</div>
+            <div className="mt-2 text-lg font-semibold text-ink">{currentScopeLabel}</div>
+            <div className="mt-1 text-sm text-slate">{currentScope.description}</div>
           </div>
 
-          <LeaderboardList entries={currentMetric.entries} />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {metricOrder.map((metricKey) => {
+              const metric = currentScope.metrics[metricKey];
+              return (
+                <RankCard
+                  key={metric.key}
+                  label={metric.label}
+                  scoreLabel={metric.score_label}
+                  score={metric.self_score}
+                  rank={metric.self_rank}
+                  totalStudents={metric.total_students}
+                  percentile={metric.percentile}
+                />
+              );
+            })}
+          </div>
         </Tabs.Root>
+      </SectionBlock>
+
+      <SectionBlock
+        title="Semester ranks"
+        description="Semester-wise SGPA ranks are also precomputed and stored for your current cohort."
+      >
+        <div className="space-y-3">
+          {currentScope.semester_metrics.length > 0 ? (
+            currentScope.semester_metrics.map((semester) => (
+              <SemesterRankRow
+                key={semester.semester_no}
+                label={semester.label}
+                score={semester.self_score}
+                rank={semester.self_rank}
+                totalStudents={semester.total_students}
+                percentile={semester.percentile}
+              />
+            ))
+          ) : (
+            <div className="rounded-[1.25rem] border border-dashed border-line bg-surface px-4 py-6 text-sm text-slate">
+              Semester-wise ranks are not available for this scope yet.
+            </div>
+          )}
+        </div>
       </SectionBlock>
     </div>
   );
