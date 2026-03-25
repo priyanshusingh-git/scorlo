@@ -5,7 +5,7 @@ import { getStudentLinkForUser } from "@/lib/queries/student-link";
 
 export async function getCurrentUserWithLink() {
   const user = await getCurrentSessionUser();
-  const link = user ? await getStudentLinkForUser(user.id) : null;
+  const link = user && user.role === "student" ? await getStudentLinkForUser(user.id) : null;
 
   return { user, link };
 }

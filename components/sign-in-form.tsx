@@ -84,11 +84,11 @@ export function SignInForm() {
         body: JSON.stringify({ idToken })
       });
 
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as
-          | { error?: string; message?: string }
-          | null;
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string; message?: string; redirectTo?: string }
+        | null;
 
+      if (!response.ok) {
         if (payload?.error === "email_not_verified") {
           throw new Error("Verify your email address before signing in.");
         }
@@ -96,7 +96,7 @@ export function SignInForm() {
         throw new Error(payload?.message ?? "Unable to create a secure session.");
       }
 
-      router.push("/");
+      router.push(payload?.redirectTo === "/admin" ? "/admin" : "/");
       router.refresh();
     } catch (error) {
       setStatus(getAuthErrorMessage(error));

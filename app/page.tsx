@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { LinkStudentForm } from "@/components/link-student-form";
 import { PendingVerification } from "@/components/pending-verification";
 import { AppShell } from "@/components/app-shell";
@@ -18,6 +19,9 @@ import { getDashboardForStudent } from "@/lib/queries/dashboard";
 
 export default async function HomePage() {
   const { user, link } = await getCurrentUserWithLink();
+  if (user?.role === "admin") {
+    redirect("/admin");
+  }
   const needsLink = !link;
   const isPending = link?.status === "pending_data" || link?.status === "rejected";
   const dashboard =

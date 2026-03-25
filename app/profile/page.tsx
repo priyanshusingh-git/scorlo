@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { LinkStudentForm } from "@/components/link-student-form";
 import { PendingVerification } from "@/components/pending-verification";
@@ -8,6 +9,9 @@ import { getDashboardForStudent } from "@/lib/queries/dashboard";
 
 export default async function ProfilePage() {
   const { user, link } = await getCurrentUserWithLink();
+  if (user?.role === "admin") {
+    redirect("/admin");
+  }
   const isLinked = link?.status === "linked";
   const dashboard =
     isLinked && link?.student_id ? await getDashboardForStudent(link.student_id) : null;

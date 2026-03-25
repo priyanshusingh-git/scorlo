@@ -5,7 +5,10 @@ import { getCurrentUserWithLink } from "@/lib/current-user-link";
 import { getRankingsForStudent } from "@/lib/queries/rankings";
 
 export default async function RankingsPage() {
-  const { link } = await getCurrentUserWithLink();
+  const { user, link } = await getCurrentUserWithLink();
+  if (user?.role === "admin") {
+    redirect("/admin");
+  }
   if (!link || link.status !== "linked") {
     redirect("/");
   }

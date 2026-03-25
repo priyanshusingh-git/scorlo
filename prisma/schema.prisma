@@ -18,10 +18,26 @@ model AppUser {
   lastLoginAt   DateTime?     @map("last_login_at") @db.Timestamptz(6)
   dataRequests  DataRequest[]
   studentLink   StudentLink?
+  adminAuditLogs admin_audit_logs[]
 
   @@index([role], map: "ix_app_users_role")
   @@index([firebaseUid], map: "ix_app_users_firebase_uid")
   @@map("app_users")
+}
+
+model admin_audit_logs {
+  id          BigInt   @id @default(autoincrement())
+  admin_user_id BigInt
+  action_key  String   @db.VarChar(64)
+  target_table String  @db.VarChar(64)
+  target_id   String   @db.VarChar(128)
+  before_json Json?
+  after_json  Json?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  app_users   AppUser  @relation(fields: [admin_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([admin_user_id], map: "ix_admin_audit_logs_admin_user_id")
+  @@index([target_table], map: "ix_admin_audit_logs_target_table")
 }
 
 model StudentLink {
@@ -165,6 +181,26 @@ model student_metrics {
   students           students @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
+model student_rankings {
+  student_id      BigInt
+  scope_key       String   @db.VarChar(16)
+  metric_key      String   @db.VarChar(32)
+  semester_no     Int      @default(0) @db.SmallInt
+  institute_name  String?
+  branch_name     String?
+  course_name     String?
+  passing_year    Int?
+  score           Decimal  @db.Decimal(8, 2)
+  rank            Int
+  total_students  Int
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+  students        students @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([student_id, scope_key, metric_key, semester_no])
+  @@index([scope_key, metric_key, semester_no, institute_name, branch_name, course_name, passing_year, rank], map: "ix_student_rankings_lookup")
+}
+
 model students {
   id               BigInt             @id @default(autoincrement())
   roll_no          String             @unique(map: "ix_students_roll_no") @db.VarChar(32)
@@ -187,6 +223,7 @@ model students {
   result_snapshots result_snapshots[]
   student_links    StudentLink?
   student_metrics  student_metrics?
+  student_rankings student_rankings[]
 }
 
 model subject_results {

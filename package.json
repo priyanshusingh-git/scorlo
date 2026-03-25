@@ -11,6 +11,7 @@
     "prisma:format": "prisma format",
     "prisma:studio": "prisma studio",
     "prisma:pull": "prisma db pull",
+    "admin:bootstrap": "node scripts/bootstrap-admin.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {

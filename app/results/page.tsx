@@ -8,7 +8,10 @@ import { getResultsSummary } from "@/lib/dashboard-view";
 import { getDashboardForStudent } from "@/lib/queries/dashboard";
 
 export default async function ResultsPage() {
-  const { link } = await getCurrentUserWithLink();
+  const { user, link } = await getCurrentUserWithLink();
+  if (user?.role === "admin") {
+    redirect("/admin");
+  }
   if (!link || link.status !== "linked") {
     redirect("/");
   }

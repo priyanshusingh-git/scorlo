@@ -1,7 +1,19 @@
+import { redirect } from "next/navigation";
 import { SignInForm } from "@/components/sign-in-form";
 import { StatusBadge } from "@/components/status-badge";
+import { getCurrentSessionUser } from "@/lib/auth/session";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const user = await getCurrentSessionUser();
+
+  if (user?.role === "admin") {
+    redirect("/admin");
+  }
+
+  if (user) {
+    redirect("/");
+  }
+
   return (
     <main className="page-shell min-h-screen w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8 2xl:px-10">
       <div className="grid min-h-[calc(100vh-3rem)] grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.82fr)] xl:grid-cols-[minmax(0,1.2fr)_minmax(460px,0.78fr)]">

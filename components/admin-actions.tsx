@@ -1,0 +1,385 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Request failed.";
+}
+
+function useAdminRequest() {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function run({
+    url,
+    method,
+    body,
+    confirmMessage,
+    successMessage
+  }: {
+    url: string;
+    method: "POST" | "PATCH" | "DELETE";
+    body?: Record<string, unknown>;
+    confirmMessage?: string;
+    successMessage?: string;
+  }) {
+    if (confirmMessage && !window.confirm(confirmMessage)) {
+      return false;
+    }
+
+    setPending(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { message?: string; error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "Request failed.");
+      }
+
+      setMessage(successMessage ?? payload?.message ?? "Saved.");
+      router.refresh();
+      return true;
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+      return false;
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return { pending, message, run };
+}
+
+export function AdminUserRoleForm({
+  userId,
+  currentRole
+}: {
+  userId: number;
+  currentRole: "student" | "admin";
+}) {
+  const [role, setRole] = useState(currentRole);
+  const { pending, message, run } = useAdminRequest();
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={role}
+          onChange={(event) => setRole(event.target.value as "student" | "admin")}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          disabled={pending}
+        >
+          <option value="student">student</option>
+          <option value="admin">admin</option>
+        </select>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            run({
+              url: `/api/admin/users/${userId}`,
+              method: "PATCH",
+              body: { role },
+              successMessage: "Role updated."
+            })
+          }
+          className="rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {pending ? "Saving..." : "Update role"}
+        </button>
+      </div>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}
+
+export function AdminDangerButton({
+  label,
+  url,
+  method = "DELETE",
+  confirmMessage,
+  successMessage
+}: {
+  label: string;
+  url: string;
+  method?: "POST" | "DELETE";
+  confirmMessage: string;
+  successMessage?: string;
+}) {
+  const { pending, message, run } = useAdminRequest();
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          run({
+            url,
+            method,
+            confirmMessage,
+            successMessage
+          })
+        }
+        className="rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-sm font-semibold text-danger disabled:opacity-60"
+      >
+        {pending ? "Working..." : label}
+      </button>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}
+
+export function AdminLinkForm({
+  linkId,
+  initialRollNo,
+  initialDob,
+  initialStatus
+}: {
+  linkId: number;
+  initialRollNo: string;
+  initialDob: string;
+  initialStatus: string;
+}) {
+  const [rollNo, setRollNo] = useState(initialRollNo);
+  const [dob, setDob] = useState(initialDob);
+  const [status, setStatus] = useState(initialStatus);
+  const { pending, message, run } = useAdminRequest();
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+        <input
+          value={rollNo}
+          onChange={(event) => setRollNo(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          placeholder="Roll no"
+          disabled={pending}
+        />
+        <input
+          value={dob}
+          onChange={(event) => setDob(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          placeholder="DOB"
+          disabled={pending}
+        />
+        <select
+          value={status}
+          onChange={(event) => setStatus(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          disabled={pending}
+        >
+          <option value="linked">linked</option>
+          <option value="pending_data">pending_data</option>
+          <option value="rejected">rejected</option>
+        </select>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            run({
+              url: `/api/admin/links/${linkId}`,
+              method: "PATCH",
+              body: { rollNo, dob, status },
+              successMessage: "Link updated."
+            })
+          }
+          className="rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {pending ? "Saving..." : "Save link"}
+        </button>
+        <AdminDangerButton
+          label="Delete link"
+          url={`/api/admin/links/${linkId}`}
+          confirmMessage="Delete this student link?"
+          successMessage="Link deleted."
+        />
+      </div>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}
+
+export function AdminDataRequestForm({
+  requestId,
+  initialRollNo,
+  initialDob,
+  initialStatus,
+  initialNotes
+}: {
+  requestId: number;
+  initialRollNo: string;
+  initialDob: string;
+  initialStatus: string;
+  initialNotes: string | null;
+}) {
+  const [rollNo, setRollNo] = useState(initialRollNo);
+  const [dob, setDob] = useState(initialDob);
+  const [status, setStatus] = useState(initialStatus);
+  const [notes, setNotes] = useState(initialNotes ?? "");
+  const { pending, message, run } = useAdminRequest();
+
+  async function submit(action: "save" | "approve" | "reject") {
+    await run({
+      url: `/api/admin/data-requests/${requestId}`,
+      method: "PATCH",
+      body: { rollNo, dob, status, notes, action },
+      confirmMessage: action === "approve" ? "Approve this request and link the student record?" : undefined,
+      successMessage:
+        action === "approve" ? "Request approved and linked." : action === "reject" ? "Request rejected." : "Request saved."
+    });
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+        <input
+          value={rollNo}
+          onChange={(event) => setRollNo(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          placeholder="Roll no"
+          disabled={pending}
+        />
+        <input
+          value={dob}
+          onChange={(event) => setDob(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          placeholder="DOB"
+          disabled={pending}
+        />
+        <select
+          value={status}
+          onChange={(event) => setStatus(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          disabled={pending}
+        >
+          <option value="pending">pending</option>
+          <option value="approved">approved</option>
+          <option value="rejected">rejected</option>
+        </select>
+      </div>
+      <textarea
+        value={notes}
+        onChange={(event) => setNotes(event.target.value)}
+        className="min-h-20 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+        placeholder="Notes"
+        disabled={pending}
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => submit("save")}
+          className="rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {pending ? "Saving..." : "Save request"}
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => submit("approve")}
+          className="rounded-xl bg-success px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          Approve & link
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => submit("reject")}
+          className="rounded-xl border border-warning/30 bg-warning-soft px-3 py-2 text-sm font-semibold text-warning disabled:opacity-60"
+        >
+          Reject
+        </button>
+        <AdminDangerButton
+          label="Delete request"
+          url={`/api/admin/data-requests/${requestId}`}
+          confirmMessage="Delete this data request?"
+          successMessage="Data request deleted."
+        />
+      </div>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}
+
+export function AdminStudentAttachForm({ studentId }: { studentId: number }) {
+  const [appUserId, setAppUserId] = useState("");
+  const [dob, setDob] = useState("");
+  const { pending, message, run } = useAdminRequest();
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <input
+          value={appUserId}
+          onChange={(event) => setAppUserId(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          placeholder="App user ID"
+          disabled={pending}
+        />
+        <input
+          value={dob}
+          onChange={(event) => setDob(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          placeholder="DOB to store"
+          disabled={pending}
+        />
+      </div>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          run({
+            url: `/api/admin/students/${studentId}/link`,
+            method: "POST",
+            body: { appUserId: Number(appUserId), dob },
+            confirmMessage: "Attach this student to the specified app user?",
+            successMessage: "Student attached."
+          })
+        }
+        className="rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+      >
+        {pending ? "Linking..." : "Attach to app user"}
+      </button>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}
+
+export function RankingRebuildButton() {
+  const { pending, message, run } = useAdminRequest();
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          run({
+            url: "/api/admin/maintenance/rebuild-rankings",
+            method: "POST",
+            confirmMessage: "Rebuild the entire student ranking cache?",
+            successMessage: "Ranking cache rebuilt."
+          })
+        }
+        className="rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+      >
+        {pending ? "Rebuilding..." : "Rebuild ranking cache"}
+      </button>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}

@@ -86,7 +86,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      user: appUser
+      user: appUser,
+      redirectTo: appUser.role === "admin" ? "/admin" : "/"
     });
   } catch (error) {
     console.error("[auth/session] failed", getErrorDetails(error));
