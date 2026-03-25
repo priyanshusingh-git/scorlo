@@ -4,7 +4,7 @@ import { requireAdminSession } from "@/lib/auth/admin";
 
 export async function POST() {
   try {
-    // 1. Ensure the user is an admin
+    // 1. Ensure the user is an admin before allowing cleanup
     await requireAdminSession();
     
     const auth = getFirebaseAdminAuth();
@@ -15,14 +15,27 @@ export async function POST() {
     let deletedCount = 0;
     let nextPageToken: string | undefined;
 
-    // We process in batches of 1000 (Firebase default limit)
+    // Process in batches of 1000
     do {
       const listUsersResult = await auth.listUsers(1000, nextPageToken);
       totalUsers += listUsersResult.users.length;
       
       const unverifiedUsers = listUsersResult.users.filter(user => {
+        const email = user.email?.toLowerCase() || "";
         const creationTime = new Date(user.metadata.creationTime).getTime();
-        return !user.emailVerified && creationTime < fortyEightHoursAgo;
+        
+        // --- SAFEGUARD: MAKE @scorlo.in COMPLETELY IMMUNE ---
+        // Any other unverified email (even random domains) is eligible for purge.
+        if (email.endsWith("@scorlo.in")) return false;
+        
+        // --- SAFEGUARD: NEVER DELETE VERIFIED USERS ---
+        if (user.emailVerified) return false;
+        
+        // --- SAFEGUARD: 48H BUFFER ---
+        // Only delete accounts that were created more than 48 hours ago.
+        if (creationTime >= fortyEightHoursAgo) return false;
+
+        return true;
       });
 
       if (unverifiedUsers.length > 0) {
@@ -41,14 +54,14 @@ export async function POST() {
     console.info(`[auth-cleanup] Completed. Scanned: ${totalUsers}, Deleted: ${deletedCount}`);
 
     return NextResponse.json({
-      message: `Successfully cleaned up ${deletedCount} unverified users.`,
+      message: `Successfully purged ${deletedCount} unverified student accounts.`,
       deletedCount,
       scannedCount: totalUsers
     });
   } catch (error) {
-    console.error("[auth-cleanup] unexpected error", error);
+    console.error("[auth-cleanup] error", error);
     return NextResponse.json(
-      { error: "cleanup_failed", message: error instanceof Error ? error.message : "Internal server error during cleanup." },
+      { error: "cleanup_failed", message: error instanceof Error ? error.message : "Internal server error." },
       { status: 500 }
     );
   }
