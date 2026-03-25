@@ -41,7 +41,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={`${hostGrotesk.variable} ${instrumentSerif.variable}`}>
-        <PwaRegister />
         {children}
       </body>
     </html>

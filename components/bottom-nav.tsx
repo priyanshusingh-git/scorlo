@@ -19,6 +19,7 @@ export function BottomNav({ items = navItems }: { items?: NavItem[] }) {
           <Link
             key={href}
             href={href}
+            prefetch
             className={cn(
               "flex min-w-16 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-[11px] font-medium transition",
               active ? "bg-accent-soft text-accent-strong" : "text-mist"

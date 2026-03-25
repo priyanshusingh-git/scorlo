@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useMemo } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as Tabs from "@radix-ui/react-tabs";
 import { SectionBlock } from "@/components/section-block";
@@ -13,36 +13,20 @@ function isScopeKey(value: string | null): value is RankingScopeKey {
   return value === "branch" || value === "batch";
 }
 
-function formatPercentile(value: number | null) {
-  return value ? `Top ${value}%` : "Percentile unavailable";
-}
-
-function getScopeLabel(scope: RankingScope) {
-  if (scope.key === "branch") {
-    return [scope.branch_name, scope.course_name, scope.passing_year ? `Batch ${scope.passing_year}` : null]
-      .filter(Boolean)
-      .join(" • ");
-  }
-
-  return [scope.passing_year ? `Batch ${scope.passing_year}` : null, scope.institute_name]
-    .filter(Boolean)
-    .join(" • ");
-}
-
 function RankCard({
   label,
   scoreLabel,
   score,
   rank,
   totalStudents,
-  percentile
+  percentileLabel
 }: {
   label: string;
   scoreLabel: string;
   score: string | null;
   rank: number | null;
   totalStudents: number;
-  percentile: number | null;
+  percentileLabel: string;
 }) {
   return (
     <div className="rounded-[1.4rem] border border-line bg-surface px-4 py-4">
@@ -60,7 +44,7 @@ function RankCard({
         </div>
       </div>
       <div className="mt-3">
-        <StatusBadge tone="accent">{formatPercentile(percentile)}</StatusBadge>
+        <StatusBadge tone="accent">{percentileLabel}</StatusBadge>
       </div>
     </div>
   );
@@ -71,13 +55,13 @@ function SemesterRankRow({
   score,
   rank,
   totalStudents,
-  percentile
+  percentileLabel
 }: {
   label: string;
   score: string | null;
   rank: number | null;
   totalStudents: number;
-  percentile: number | null;
+  percentileLabel: string;
 }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[1.25rem] border border-line bg-surface px-4 py-3">
@@ -88,7 +72,7 @@ function SemesterRankRow({
           {totalStudents > 0 ? `${totalStudents} students` : "Cohort unavailable"}
         </div>
       </div>
-      <StatusBadge tone="warning">{formatPercentile(percentile)}</StatusBadge>
+      <StatusBadge tone="warning">{percentileLabel}</StatusBadge>
     </div>
   );
 }
@@ -101,11 +85,18 @@ export function LeaderboardTabs({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [isPending, startScopeTransition] = useTransition();
+  const [optimisticScopeKey, setOptimisticScopeKey] = useState<RankingScopeKey | null>(null);
   const rawScope = searchParams.get("scope");
   const scopeKey: RankingScopeKey = isScopeKey(rawScope) ? rawScope : DEFAULT_SCOPE;
-  const currentScope = rankings.scopes[scopeKey];
-  const currentScopeLabel = getScopeLabel(currentScope) || "Ranking cohort";
+  const displayedScopeKey = optimisticScopeKey ?? scopeKey;
+  const currentScope = rankings.scopes[displayedScopeKey];
   const metricOrder: RankingMetricKey[] = ["percentage", "cgpa", "latest"];
+
+  useEffect(() => {
+    setOptimisticScopeKey(null);
+  }, [scopeKey]);
+
   const updateSearchParam = useMemo(
     () => (value: string) => {
       const nextParams = new URLSearchParams(searchParams.toString());
@@ -119,11 +110,11 @@ export function LeaderboardTabs({
       const nextQuery = nextParams.toString();
       const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
 
-      startTransition(() => {
+      startScopeTransition(() => {
         router.replace(nextUrl, { scroll: false });
       });
     },
-    [pathname, router, searchParams]
+    [pathname, router, searchParams, startScopeTransition]
   );
 
   return (
@@ -136,25 +127,33 @@ export function LeaderboardTabs({
           <StatusBadge tone="warning">{currentScope.label}</StatusBadge>
           {rankings.anchor.passing_year ? <StatusBadge tone="info">Batch {rankings.anchor.passing_year}</StatusBadge> : null}
           <StatusBadge tone="accent">{currentScope.total_students} students</StatusBadge>
+          {isPending ? <StatusBadge tone="info">Updating view...</StatusBadge> : null}
         </div>
 
         <Tabs.Root
-          value={scopeKey}
+          value={displayedScopeKey}
           onValueChange={(value) => {
             if (!isScopeKey(value)) return;
+            setOptimisticScopeKey(value);
             updateSearchParam(value);
           }}
           className="space-y-5"
         >
-          <Tabs.List className="grid grid-cols-2 gap-2 rounded-[1.4rem] bg-surface-muted p-1 xl:max-w-md">
+          <Tabs.List
+            className={`grid grid-cols-2 gap-2 rounded-[1.4rem] bg-surface-muted p-1 transition xl:max-w-md ${
+              isPending ? "opacity-80" : ""
+            }`}
+          >
             <Tabs.Trigger
               value="branch"
+              disabled={isPending}
               className="rounded-[1rem] px-3 py-2 text-xs font-semibold text-slate data-[state=active]:bg-ink data-[state=active]:text-white"
             >
               Branch Wise
             </Tabs.Trigger>
             <Tabs.Trigger
               value="batch"
+              disabled={isPending}
               className="rounded-[1rem] px-3 py-2 text-xs font-semibold text-slate data-[state=active]:bg-ink data-[state=active]:text-white"
             >
               Batch Wise
@@ -163,11 +162,11 @@ export function LeaderboardTabs({
 
           <div className="rounded-[1.3rem] bg-app/70 px-4 py-4">
             <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Cohort</div>
-            <div className="mt-2 text-lg font-semibold text-ink">{currentScopeLabel}</div>
+            <div className="mt-2 text-lg font-semibold text-ink">{currentScope.summary_label || "Ranking cohort"}</div>
             <div className="mt-1 text-sm text-slate">{currentScope.description}</div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className={`grid grid-cols-1 gap-4 transition lg:grid-cols-3 ${isPending ? "opacity-80" : ""}`}>
             {metricOrder.map((metricKey) => {
               const metric = currentScope.metrics[metricKey];
               return (
@@ -178,7 +177,7 @@ export function LeaderboardTabs({
                   score={metric.self_score}
                   rank={metric.self_rank}
                   totalStudents={metric.total_students}
-                  percentile={metric.percentile}
+                  percentileLabel={metric.percentile_label}
                 />
               );
             })}
@@ -190,7 +189,7 @@ export function LeaderboardTabs({
         title="Semester ranks"
         description="Semester-wise SGPA ranks are also precomputed and stored for your current cohort."
       >
-        <div className="space-y-3">
+        <div className={`space-y-3 transition ${isPending ? "opacity-80" : ""}`}>
           {currentScope.semester_metrics.length > 0 ? (
             currentScope.semester_metrics.map((semester) => (
               <SemesterRankRow
@@ -199,7 +198,7 @@ export function LeaderboardTabs({
                 score={semester.self_score}
                 rank={semester.self_rank}
                 totalStudents={semester.total_students}
-                percentile={semester.percentile}
+                percentileLabel={semester.percentile_label}
               />
             ))
           ) : (

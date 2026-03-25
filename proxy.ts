@@ -21,7 +21,15 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+
+  if (hasSession && !isPublicPath(pathname)) {
+    response.headers.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+  }
+
+  return response;
 }
 
 export const config = {

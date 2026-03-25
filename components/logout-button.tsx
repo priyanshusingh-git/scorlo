@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LoaderCircle, LogOut } from "lucide-react";
 import { getFirebaseClientAuth } from "@/lib/firebase/client";
 
 export function LogoutButton({
@@ -37,7 +37,11 @@ export function LogoutButton({
       disabled={pending}
       className={className}
     >
-      <LogOut className="h-4 w-4" strokeWidth={2.1} />
+      {pending ? (
+        <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={2.1} />
+      ) : (
+        <LogOut className="h-4 w-4" strokeWidth={2.1} />
+      )}
       <span>{pending ? "Logging out..." : "Logout"}</span>
     </button>
   );

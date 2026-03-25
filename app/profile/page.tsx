@@ -5,7 +5,7 @@ import { PendingVerification } from "@/components/pending-verification";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
 import { getCurrentUserWithLink } from "@/lib/current-user-link";
-import { getDashboardForStudent } from "@/lib/queries/dashboard";
+import { getStudentAppSnapshot } from "@/lib/queries/dashboard";
 
 export default async function ProfilePage() {
   const { user, link } = await getCurrentUserWithLink();
@@ -13,8 +13,9 @@ export default async function ProfilePage() {
     redirect("/admin");
   }
   const isLinked = link?.status === "linked";
-  const dashboard =
-    isLinked && link?.student_id ? await getDashboardForStudent(link.student_id) : null;
+  const snapshot =
+    isLinked && link?.student_id ? await getStudentAppSnapshot(link.student_id) : null;
+  const dashboard = snapshot?.dashboard ?? null;
   const student = dashboard?.student ?? null;
 
   return (

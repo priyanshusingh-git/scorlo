@@ -6,99 +6,6 @@ import type { DashboardPayload } from "@/lib/queries/dashboard";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/status-badge";
 
-function getSemesterStatus(semester: DashboardPayload["semesters"][number]) {
-  const activeCarryCount = semester.cop_subjects.length;
-  const hasGraceClear = semester.subjects.some((subject) => {
-    const grade = (subject.grade ?? "").trim().toUpperCase();
-    return grade === "E#";
-  });
-  const rawStatus = (semester.result_status ?? "").trim().toUpperCase();
-
-  if (activeCarryCount > 0) {
-    return {
-      label: `CP(${activeCarryCount})`,
-      tone: "warning" as const
-    };
-  }
-
-  if (hasGraceClear) {
-    return {
-      label: "PWG",
-      tone: "accent" as const
-    };
-  }
-
-  if (rawStatus.includes("PASS")) {
-    return {
-      label: "PASS",
-      tone: "success" as const
-    };
-  }
-
-  if (rawStatus.includes("CP") || rawStatus.includes("PWG")) {
-    return {
-      label: "CP(0)",
-      tone: "success" as const
-    };
-  }
-
-  return {
-    label: semester.result_status ?? "Unknown",
-    tone: "accent" as const
-  };
-}
-
-function getSubjectStatus(
-  subject: DashboardPayload["semesters"][number]["subjects"][number],
-  copSubjects: string[]
-) {
-  const grade = (subject.grade ?? "").trim().toUpperCase();
-  const isCarryPaper =
-    (subject.code !== null && copSubjects.includes(subject.code)) ||
-    grade === "F" ||
-    grade === "AB" ||
-    grade === "ABSENT";
-
-  if (isCarryPaper) {
-    return {
-      label: "Carry paper",
-      className: "text-danger"
-    };
-  }
-
-  if (grade === "E#") {
-    return {
-      label: "Grace clear",
-      className: "text-success"
-    };
-  }
-
-  if (grade === "WH" || grade === "UFM") {
-    return {
-      label: "Review",
-      className: "text-warning"
-    };
-  }
-
-  return {
-    label: "Clear",
-    className: "text-success"
-  };
-}
-
-function formatDeclarationDate(value: string | null) {
-  if (!value) return "Date unavailable";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric"
-  }).format(date);
-}
-
 export function SemesterCards({
   semesters
 }: {
@@ -107,8 +14,6 @@ export function SemesterCards({
   return (
     <Accordion.Root type="single" collapsible className="space-y-3">
       {semesters.map((semester) => {
-        const semesterStatus = getSemesterStatus(semester);
-
         return (
           <Accordion.Item
             key={semester.id}
@@ -123,12 +28,12 @@ export function SemesterCards({
                 </div>
                 <div className="mt-1 text-sm text-slate">
                   SGPA {semester.sgpa ?? "--"} • {semester.total_marks_obtained ?? "--"} marks •{" "}
-                  {formatDeclarationDate(semester.date_of_declaration)}
+                  {semester.formatted_declaration_date}
                 </div>
               </div>
               <div className="flex items-center gap-3 self-start md:self-center">
-                <StatusBadge tone={semesterStatus.tone}>
-                  {semesterStatus.label}
+                <StatusBadge tone={semester.status_badge_tone}>
+                  {semester.status_badge_label}
                 </StatusBadge>
                 <ChevronDown className="h-4 w-4 text-mist transition group-data-[state=open]:rotate-180" />
               </div>
@@ -142,8 +47,6 @@ export function SemesterCards({
             ) : (
               <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                 {semester.subjects.map((subject) => {
-                  const subjectStatus = getSubjectStatus(subject, semester.cop_subjects);
-
                   return (
                     <div
                       key={subject.id}
@@ -171,10 +74,10 @@ export function SemesterCards({
                         <span
                           className={cn(
                             "text-right font-semibold uppercase tracking-[0.14em]",
-                            subjectStatus.className
+                            subject.status_class_name
                           )}
                         >
-                          {subjectStatus.label}
+                          {subject.status_label}
                         </span>
                       </div>
                     </div>

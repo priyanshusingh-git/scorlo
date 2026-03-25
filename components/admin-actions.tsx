@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { LoaderCircle } from "lucide-react";
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request failed.";
@@ -94,7 +95,7 @@ export function AdminUserRoleForm({
               successMessage: "Role updated."
             })
           }
-          className="rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
         >
           {pending ? "Saving..." : "Update role"}
         </button>
@@ -132,9 +133,10 @@ export function AdminDangerButton({
             successMessage
           })
         }
-        className="rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-sm font-semibold text-danger disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-sm font-semibold text-danger disabled:opacity-60"
       >
-        {pending ? "Working..." : label}
+        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+        <span>{pending ? "Working..." : label}</span>
       </button>
       {message ? <p className="text-xs text-slate">{message}</p> : null}
     </div>
@@ -197,9 +199,10 @@ export function AdminLinkForm({
               successMessage: "Link updated."
             })
           }
-          className="rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {pending ? "Saving..." : "Save link"}
+          {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+          <span>{pending ? "Saving..." : "Save link"}</span>
         </button>
         <AdminDangerButton
           label="Delete link"
@@ -283,25 +286,28 @@ export function AdminDataRequestForm({
           type="button"
           disabled={pending}
           onClick={() => submit("save")}
-          className="rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {pending ? "Saving..." : "Save request"}
+          {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+          <span>{pending ? "Saving..." : "Save request"}</span>
         </button>
         <button
           type="button"
           disabled={pending}
           onClick={() => submit("approve")}
-          className="rounded-xl bg-success px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-xl bg-success px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
         >
-          Approve & link
+          {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+          <span>Approve & link</span>
         </button>
         <button
           type="button"
           disabled={pending}
           onClick={() => submit("reject")}
-          className="rounded-xl border border-warning/30 bg-warning-soft px-3 py-2 text-sm font-semibold text-warning disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-soft px-3 py-2 text-sm font-semibold text-warning disabled:opacity-60"
         >
-          Reject
+          {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+          <span>Reject</span>
         </button>
         <AdminDangerButton
           label="Delete request"
@@ -350,9 +356,10 @@ export function AdminStudentAttachForm({ studentId }: { studentId: number }) {
             successMessage: "Student attached."
           })
         }
-        className="rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
       >
-        {pending ? "Linking..." : "Attach to app user"}
+        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+        <span>{pending ? "Linking..." : "Attach to app user"}</span>
       </button>
       {message ? <p className="text-xs text-slate">{message}</p> : null}
     </div>
@@ -375,9 +382,62 @@ export function RankingRebuildButton() {
             successMessage: "Ranking cache rebuilt."
           })
         }
-        className="rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
       >
-        {pending ? "Rebuilding..." : "Rebuild ranking cache"}
+        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+        <span>{pending ? "Rebuilding..." : "Rebuild ranking cache"}</span>
+      </button>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}
+
+export function DashboardCacheRebuildButton() {
+  const { pending, message, run } = useAdminRequest();
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          run({
+            url: "/api/admin/maintenance/dashboard-cache/rebuild",
+            method: "POST",
+            confirmMessage: "Rebuild full app snapshot rows for all currently linked students?",
+            successMessage: "App snapshot cache rebuilt."
+          })
+        }
+        className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+      >
+        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+        <span>{pending ? "Rebuilding..." : "Rebuild app snapshot cache"}</span>
+      </button>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}
+
+export function DashboardCacheClearButton() {
+  const { pending, message, run } = useAdminRequest();
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          run({
+            url: "/api/admin/maintenance/dashboard-cache/clear",
+            method: "POST",
+            confirmMessage: "Clear all stored app snapshot cache rows?",
+            successMessage: "App snapshot cache cleared."
+          })
+        }
+        className="inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm font-semibold text-danger disabled:opacity-60"
+      >
+        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+        <span>{pending ? "Clearing..." : "Clear app snapshot cache"}</span>
       </button>
       {message ? <p className="text-xs text-slate">{message}</p> : null}
     </div>

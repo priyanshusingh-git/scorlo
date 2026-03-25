@@ -8,7 +8,7 @@ import {
   signInWithEmailAndPassword,
   signOut
 } from "firebase/auth";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, LoaderCircle } from "lucide-react";
 import { getFirebaseClientAuth } from "@/lib/firebase/client";
 import { StatusBadge } from "@/components/status-badge";
 
@@ -149,8 +149,9 @@ export function SignInForm() {
         disabled={pending}
         className="flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-accent-strong px-4 py-4 text-sm font-semibold text-white shadow-soft disabled:opacity-60"
       >
+        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
         {pending ? "Working..." : mode === "login" ? "Continue to Scorlo" : "Create account"}
-        <ChevronRight className="h-4 w-4" />
+        {!pending ? <ChevronRight className="h-4 w-4" /> : null}
       </button>
       <div className="flex flex-wrap gap-2">
         <StatusBadge tone="info">Verification email</StatusBadge>

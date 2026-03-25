@@ -17,6 +17,7 @@ export function AdminDesktopNav() {
           <Link
             key={href}
             href={href}
+            prefetch
             className={cn(
               "flex items-center gap-3 rounded-[1.15rem] px-4 py-3 text-sm font-medium transition",
               active

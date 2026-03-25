@@ -4,8 +4,7 @@ import { SectionBlock } from "@/components/section-block";
 import { SemesterCards } from "@/components/semester-card";
 import { StatusBadge } from "@/components/status-badge";
 import { getCurrentUserWithLink } from "@/lib/current-user-link";
-import { getResultsSummary } from "@/lib/dashboard-view";
-import { getDashboardForStudent } from "@/lib/queries/dashboard";
+import { getStudentAppSnapshot } from "@/lib/queries/dashboard";
 
 export default async function ResultsPage() {
   const { user, link } = await getCurrentUserWithLink();
@@ -16,12 +15,13 @@ export default async function ResultsPage() {
     redirect("/");
   }
 
-  const dashboard = link.student_id ? await getDashboardForStudent(link.student_id) : null;
-  if (!dashboard) {
+  const snapshot = link.student_id ? await getStudentAppSnapshot(link.student_id) : null;
+  const dashboard = snapshot?.dashboard ?? null;
+  if (!dashboard || !snapshot) {
     redirect("/");
   }
 
-  const summary = getResultsSummary(dashboard);
+  const summary = snapshot.results_view;
   const latestSemester = dashboard.semesters[0] ?? null;
 
   return (
@@ -45,8 +45,8 @@ export default async function ResultsPage() {
           <div className="mt-5 grid grid-cols-1 gap-3">
             <div className="rounded-[1.2rem] bg-app/70 px-4 py-4">
               <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Latest declaration</div>
-              <div className="mt-2 text-lg font-semibold text-ink">{summary.latestSemesterLabel}</div>
-              <div className="mt-1 text-sm text-slate">{summary.latestDeclaration}</div>
+              <div className="mt-2 text-lg font-semibold text-ink">{summary.latest_semester_label}</div>
+              <div className="mt-1 text-sm text-slate">{summary.latest_declaration}</div>
             </div>
             <div className="rounded-[1.2rem] bg-app/70 px-4 py-4">
               <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Academic state</div>
@@ -54,7 +54,7 @@ export default async function ResultsPage() {
                 <StatusBadge tone={dashboard.metrics.active_backs === 0 ? "success" : "warning"}>
                   Active backs: {dashboard.metrics.active_backs}
                 </StatusBadge>
-                <StatusBadge tone="accent">{summary.bestSemesterLabel}</StatusBadge>
+                <StatusBadge tone="accent">{summary.best_semester_label}</StatusBadge>
                 {latestSemester?.session_type ? (
                   <StatusBadge tone="info">{latestSemester.session_type}</StatusBadge>
                 ) : null}

@@ -29,6 +29,17 @@ export type AdminOverview = {
   }>;
 };
 
+export type AdminAccountRow = {
+  id: number;
+  email: string;
+  display_name: string | null;
+  email_verified: boolean;
+  role: "admin";
+  created_at: string;
+  updated_at: string;
+  last_login_at: string | null;
+};
+
 export type AdminUserRow = {
   id: number;
   email: string;
@@ -107,8 +118,16 @@ export type AdminStudentDetail = AdminStudentSearchRow & {
 
 export type AdminMaintenanceInfo = {
   totalRankingRows: number;
+  totalDashboardCacheRows: number;
   recentRankingRebuilds: Array<{
     id: number;
+    created_at: string;
+    admin_email: string;
+    after_json: Record<string, unknown> | null;
+  }>;
+  recentDashboardCacheActions: Array<{
+    id: number;
+    action_key: string;
     created_at: string;
     admin_email: string;
     after_json: Record<string, unknown> | null;
@@ -190,7 +209,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
 
 export async function searchAdminUsers({
   query,
-  role
+  role = "student"
 }: {
   query?: string;
   role?: string;
@@ -240,6 +259,32 @@ export async function searchAdminUsers({
     ORDER BY au.updated_at DESC, au.id DESC
     LIMIT 50
   `) as AdminUserRow[];
+}
+
+export async function searchAdminAccounts({ query }: { query?: string }) {
+  const sql = getSql();
+  const pattern = buildSearchPattern(query);
+
+  return (await sql`
+    SELECT
+      au.id,
+      au.email,
+      au.display_name,
+      au.email_verified,
+      au.role,
+      au.created_at::text,
+      au.updated_at::text,
+      au.last_login_at::text
+    FROM app_users au
+    WHERE au.role = 'admin'
+      AND (
+        ${!pattern.enabled}
+        OR au.email ILIKE ${pattern.value}
+        OR COALESCE(au.display_name, '') ILIKE ${pattern.value}
+      )
+    ORDER BY au.updated_at DESC, au.id DESC
+    LIMIT 50
+  `) as AdminAccountRow[];
 }
 
 export async function searchAdminLinks({
@@ -425,10 +470,25 @@ export async function getAdminStudentDetail(studentId: number): Promise<AdminStu
 
 export async function getAdminMaintenanceInfo(): Promise<AdminMaintenanceInfo> {
   const sql = getSql();
-  const countRows = (await sql`
+  const rankingCountRows = (await sql`
     SELECT COUNT(*)::int AS total_ranking_rows
     FROM student_rankings
   `) as Array<{ total_ranking_rows: number }>;
+
+  const dashboardTableRows = (await sql`
+    SELECT COUNT(*)::int AS total
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_name = 'student_app_snapshot_cache'
+  `) as Array<{ total: number }>;
+
+  const totalDashboardCacheRows =
+    (dashboardTableRows[0]?.total ?? 0) > 0
+      ? ((await sql`
+          SELECT COUNT(*)::int AS total_dashboard_cache_rows
+          FROM student_app_snapshot_cache
+        `) as Array<{ total_dashboard_cache_rows: number }>)[0]?.total_dashboard_cache_rows ?? 0
+      : 0;
 
   const recentRankingRebuilds = (await sql`
     SELECT
@@ -443,8 +503,27 @@ export async function getAdminMaintenanceInfo(): Promise<AdminMaintenanceInfo> {
     LIMIT 10
   `) as AdminMaintenanceInfo["recentRankingRebuilds"];
 
+  const recentDashboardCacheActions =
+    (dashboardTableRows[0]?.total ?? 0) > 0
+      ? ((await sql`
+          SELECT
+            aal.id,
+            aal.action_key,
+            aal.created_at::text,
+            au.email AS admin_email,
+            aal.after_json
+          FROM admin_audit_logs aal
+          JOIN app_users au ON au.id = aal.admin_user_id
+          WHERE aal.target_table = 'student_app_snapshot_cache'
+          ORDER BY aal.created_at DESC, aal.id DESC
+          LIMIT 10
+        `) as AdminMaintenanceInfo["recentDashboardCacheActions"])
+      : [];
+
   return {
-    totalRankingRows: countRows[0]?.total_ranking_rows ?? 0,
-    recentRankingRebuilds
+    totalRankingRows: rankingCountRows[0]?.total_ranking_rows ?? 0,
+    totalDashboardCacheRows,
+    recentRankingRebuilds,
+    recentDashboardCacheActions
   };
 }

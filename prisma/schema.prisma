@@ -73,10 +73,6 @@ model DataRequest {
   @@map("data_requests")
 }
 
-model codex_probe_table {
-  id BigInt @id
-}
-
 model import_run_items {
   id            Int         @id @default(autoincrement())
   run_id        Int

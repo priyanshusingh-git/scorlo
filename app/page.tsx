@@ -8,14 +8,7 @@ import { ProgressChart } from "@/components/progress-chart";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
 import { getCurrentUserWithLink } from "@/lib/current-user-link";
-import {
-  buildMetricTiles,
-  buildProgressPoints,
-  getBestSemester,
-  getHeroSummary,
-  getTrendNote
-} from "@/lib/dashboard-view";
-import { getDashboardForStudent } from "@/lib/queries/dashboard";
+import { getStudentAppSnapshot } from "@/lib/queries/dashboard";
 
 export default async function HomePage() {
   const { user, link } = await getCurrentUserWithLink();
@@ -24,16 +17,12 @@ export default async function HomePage() {
   }
   const needsLink = !link;
   const isPending = link?.status === "pending_data" || link?.status === "rejected";
-  const dashboard =
+  const snapshot =
     link?.status === "linked" && link.student_id
-      ? await getDashboardForStudent(link.student_id)
+      ? await getStudentAppSnapshot(link.student_id)
       : null;
-
-  const hero = dashboard ? getHeroSummary(dashboard) : null;
-  const metricTiles = dashboard ? buildMetricTiles(dashboard) : [];
-  const progressPoints = dashboard ? buildProgressPoints(dashboard) : [];
-  const bestSemester = dashboard ? getBestSemester(dashboard) : null;
-  const trendNote = dashboard ? getTrendNote(dashboard) : null;
+  const dashboard = snapshot?.dashboard ?? null;
+  const homeView = snapshot?.home_view ?? null;
   const latestSemester = dashboard?.semesters[0] ?? null;
 
   return (
@@ -89,19 +78,19 @@ export default async function HomePage() {
         <>
           <HeroCard
             name={dashboard.student.name ?? user?.email ?? "Student"}
-            summary={hero?.summary ?? "Academic record synced from Neon."}
+            summary={homeView?.hero.summary ?? "Academic record synced from Neon."}
             branch={dashboard.student.branch_name}
             rollNo={dashboard.student.roll_no}
-            status={hero?.status ?? "Linked"}
-            primarySignalLabel={hero?.latestSignal.label ?? "Latest SGPA"}
-            primarySignal={hero?.latestSignal.value ?? "--"}
-            primarySignalHint={hero?.latestSignal.hint ?? "Academic signal"}
+            status={homeView?.hero.status ?? "Linked"}
+            primarySignalLabel={homeView?.hero.latest_signal_label ?? "Latest SGPA"}
+            primarySignal={homeView?.hero.latest_signal_value ?? "--"}
+            primarySignalHint={homeView?.hero.latest_signal_hint ?? "Academic signal"}
             totalSemesters={dashboard.semesters.length}
             institute={dashboard.student.institute_name}
           />
 
           <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            {metricTiles.map((metric) => (
+            {homeView?.metric_tiles.map((metric) => (
               <MetricTile key={metric.label} metric={metric} />
             ))}
           </section>
@@ -111,7 +100,7 @@ export default async function HomePage() {
               title="Progress story"
               description="This chart now reads the stored semester SGPA trail directly from the academic database."
             >
-              <ProgressChart points={progressPoints} />
+              <ProgressChart chart={homeView?.progress_chart ?? { points: [], peak_label: "--", path: "", fill_path: "", coordinates: [] }} />
             </SectionBlock>
 
             <SectionBlock
@@ -120,30 +109,31 @@ export default async function HomePage() {
               className="h-full"
             >
               <div className="flex flex-wrap gap-2">
-                <StatusBadge tone={dashboard.metrics.active_backs === 0 ? "success" : "warning"}>
-                  Active backs: {dashboard.metrics.active_backs}
+                <StatusBadge tone={homeView?.standing.active_backs_tone ?? "warning"}>
+                  {homeView?.standing.active_backs_label ?? `Active backs: ${dashboard.metrics.active_backs}`}
                 </StatusBadge>
-                <StatusBadge tone="accent">Cleared backs: {dashboard.metrics.cleared_backs}</StatusBadge>
+                <StatusBadge tone="accent">{homeView?.standing.cleared_backs_label ?? `Cleared backs: ${dashboard.metrics.cleared_backs}`}</StatusBadge>
                 <StatusBadge tone="info">
-                  {latestSemester
-                    ? `Latest result: Semester ${latestSemester.semester_no}`
-                    : "No semester result yet"}
+                  {homeView?.standing.latest_result_label ??
+                    (latestSemester
+                      ? `Latest result: Semester ${latestSemester.semester_no}`
+                      : "No semester result yet")}
                 </StatusBadge>
               </div>
               <p className="mt-4 text-sm leading-7 text-slate">
-                {trendNote}
+                {homeView?.standing.trend_note}
               </p>
               <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-[1.2rem] bg-app/70 px-4 py-4">
                   <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Best semester</div>
                   <div className="mt-2 text-lg font-semibold text-ink">
-                    {bestSemester ? `Semester ${bestSemester.semester_no}` : "Not available"}
+                    {homeView?.standing.best_semester_label ?? "Not available"}
                   </div>
                 </div>
                 <div className="rounded-[1.2rem] bg-app/70 px-4 py-4">
                   <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Latest status</div>
                   <div className="mt-2 text-lg font-semibold text-ink">
-                    {latestSemester?.result_status ?? "Unknown"}
+                    {homeView?.standing.latest_status_label ?? "Unknown"}
                   </div>
                 </div>
               </div>

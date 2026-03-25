@@ -18,6 +18,7 @@ export type RankingMetric = {
   self_score: string | null;
   total_students: number;
   percentile: number | null;
+  percentile_label: string;
 };
 
 export type SemesterRankingMetric = {
@@ -28,12 +29,14 @@ export type SemesterRankingMetric = {
   self_score: string | null;
   total_students: number;
   percentile: number | null;
+  percentile_label: string;
 };
 
 export type RankingScope = {
   key: RankingScopeKey;
   label: string;
   description: string;
+  summary_label: string;
   institute_name: string | null;
   branch_name: string | null;
   course_name: string | null;
@@ -148,6 +151,26 @@ function computePercentile(rank: number | null, totalStudents: number) {
   return Math.max(1, Math.ceil((rank / totalStudents) * 100));
 }
 
+function formatPercentileLabel(percentile: number | null) {
+  return percentile ? `Top ${percentile}%` : "Percentile unavailable";
+}
+
+function buildScopeSummaryLabel(student: AnchorStudent, scope: RankingScopeConfig) {
+  if (scope.key === "branch") {
+    return [
+      student.branch_name,
+      student.course_name,
+      student.passing_year ? `Batch ${student.passing_year}` : null
+    ]
+      .filter(Boolean)
+      .join(" • ");
+  }
+
+  return [student.passing_year ? `Batch ${student.passing_year}` : null, student.institute_name]
+    .filter(Boolean)
+    .join(" • ");
+}
+
 async function getAnchorStudent(studentId: number) {
   const sql = getSql();
   const rows = (await sql`
@@ -163,45 +186,6 @@ async function getAnchorStudent(studentId: number) {
   `) as AnchorStudent[];
 
   return rows[0] ?? null;
-}
-
-async function getCachedMetricRanking(
-  student: AnchorStudent,
-  scope: RankingScopeConfig,
-  metric: RankingMetricConfig
-) {
-  const sql = getSql();
-
-  const rows = (await sql`
-    SELECT
-      sr.score::text AS score,
-      sr.rank,
-      sr.total_students
-    FROM student_rankings sr
-    WHERE sr.scope_key = ${scope.key}
-      AND sr.metric_key = ${metric.key}
-      AND sr.semester_no = 0
-      AND sr.student_id = ${student.id}
-    LIMIT 1
-  `) as Array<{
-    score: string;
-    rank: number;
-    total_students: number;
-  }>;
-  const selfRow = rows[0] ?? null;
-  if (!selfRow) return null;
-
-  const totalStudents = selfRow.total_students;
-
-  return {
-    key: metric.key,
-    label: metric.label,
-    score_label: metric.scoreLabel,
-    self_rank: selfRow.rank,
-    self_score: formatScore(selfRow.score, metric.suffix),
-    total_students: totalStudents,
-    percentile: computePercentile(selfRow.rank, totalStudents)
-  } satisfies RankingMetric;
 }
 
 async function getScopeDataset(student: AnchorStudent, scope: RankingScopeConfig) {
@@ -507,7 +491,8 @@ async function getMetricRanking(
     self_rank: selfRow?.rank ?? null,
     self_score: selfRow ? formatScore(formatMetric(selfRow.score) ?? "0.00", suffix) : null,
     total_students: totalStudents,
-    percentile: computePercentile(selfRow?.rank ?? null, totalStudents)
+    percentile: computePercentile(selfRow?.rank ?? null, totalStudents),
+    percentile_label: formatPercentileLabel(computePercentile(selfRow?.rank ?? null, totalStudents))
   } satisfies RankingMetric;
 }
 
@@ -541,7 +526,8 @@ async function getCachedSemesterRankings(student: AnchorStudent, scope: RankingS
     self_rank: row.rank,
     self_score: row.score,
     total_students: row.total_students,
-    percentile: computePercentile(row.rank, row.total_students)
+    percentile: computePercentile(row.rank, row.total_students),
+    percentile_label: formatPercentileLabel(computePercentile(row.rank, row.total_students))
   })) satisfies SemesterRankingMetric[];
 }
 
@@ -563,39 +549,15 @@ function getSemesterRankings(
         self_rank: selfRow.rank,
         self_score: formatMetric(selfRow.score),
         total_students: group.total_students,
-        percentile: computePercentile(selfRow.rank, group.total_students)
+        percentile: computePercentile(selfRow.rank, group.total_students),
+        percentile_label: formatPercentileLabel(computePercentile(selfRow.rank, group.total_students))
       });
   }
 
   return semesterRankings;
 }
 
-async function getScopeRankings(student: AnchorStudent, scope: RankingScopeConfig) {
-  const cachedMetricResults = await Promise.all(
-    RANKING_METRICS.map((metric) => getCachedMetricRanking(student, scope, metric))
-  );
-  const cachedSemesterMetrics = await getCachedSemesterRankings(student, scope);
-  const hasFullCache = cachedMetricResults.every((metric) => metric !== null);
-  const hasSemesterCache = cachedSemesterMetrics !== null;
-  const useCache = hasFullCache && hasSemesterCache;
-  const metricResults = useCache
-    ? (cachedMetricResults as RankingMetric[])
-    : [];
-  const semesterMetrics = useCache ? cachedSemesterMetrics : [];
-  const resolved = useCache
-    ? { metricResults, semesterMetrics }
-    : await (async () => {
-        const scopeRows = await getScopeDataset(student, scope);
-        const scopedStudents = buildScopedStudents(scopeRows);
-        return {
-          metricResults: await Promise.all(
-            RANKING_METRICS.map((metric) =>
-              getMetricRanking(student.id, scopedStudents, metric, metric.suffix)
-            )
-          ),
-          semesterMetrics: getSemesterRankings(student.id, scopeRows)
-        };
-      })();
+async function getScopeRankings(student: AnchorStudent, scope: RankingScopeConfig, resolved: { metricResults: RankingMetric[], semesterMetrics: SemesterRankingMetric[] }) {
   const totalStudents =
     resolved.metricResults.find((metric) => metric.total_students > 0)?.total_students ?? 0;
 
@@ -603,6 +565,7 @@ async function getScopeRankings(student: AnchorStudent, scope: RankingScopeConfi
     key: scope.key,
     label: scope.label,
     description: scope.description,
+    summary_label: buildScopeSummaryLabel(student, scope),
     institute_name: student.institute_name,
     branch_name: student.branch_name,
     course_name: student.course_name,
@@ -621,9 +584,87 @@ export async function getRankingsForStudent(studentId: number): Promise<Rankings
   const student = await getAnchorStudent(studentId);
   if (!student) return null;
 
-  const scopeResults = await Promise.all(
-    RANKING_SCOPES.map((scope) => getScopeRankings(student, scope))
-  );
+  const sql = getSql();
+  const cachedRows = (await sql`
+    SELECT
+      scope_key,
+      metric_key,
+      semester_no,
+      score::text AS score,
+      rank,
+      total_students
+    FROM student_rankings
+    WHERE student_id = ${student.id}
+  `) as Array<{
+    scope_key: string;
+    metric_key: string;
+    semester_no: number;
+    score: string;
+    rank: number;
+    total_students: number;
+  }>;
+
+  const getResolvedForScope = async (scope: RankingScopeConfig) => {
+    const scopeRows = cachedRows.filter(r => r.scope_key === scope.key);
+    
+    // Check if we have a full cache for this scope
+    const hasMetricCache = RANKING_METRICS.every(m => scopeRows.some(r => r.metric_key === m.key && r.semester_no === 0));
+    const hasSemesterCache = scopeRows.some(r => r.metric_key === 'semester_sgpa' && r.semester_no > 0);
+
+    if (hasMetricCache && hasSemesterCache) {
+      const metricResults = RANKING_METRICS.map(m => {
+        const row = scopeRows.find(r => r.metric_key === m.key && r.semester_no === 0)!;
+        return {
+          key: m.key,
+          label: m.label,
+          score_label: m.scoreLabel,
+          self_rank: row.rank,
+          self_score: formatScore(row.score, m.suffix),
+          total_students: row.total_students,
+          percentile: computePercentile(row.rank, row.total_students),
+          percentile_label: formatPercentileLabel(computePercentile(row.rank, row.total_students))
+        } satisfies RankingMetric;
+      });
+
+      const semesterMetrics = scopeRows
+        .filter(r => r.metric_key === 'semester_sgpa' && r.semester_no > 0)
+        .sort((a, b) => b.semester_no - a.semester_no)
+        .map(row => ({
+          semester_no: row.semester_no,
+          label: `Semester ${row.semester_no}`,
+          score_label: "SGPA",
+          self_rank: row.rank,
+          self_score: row.score,
+          total_students: row.total_students,
+          percentile: computePercentile(row.rank, row.total_students),
+          percentile_label: formatPercentileLabel(computePercentile(row.rank, row.total_students))
+        })) satisfies SemesterRankingMetric[];
+
+      return { metricResults, semesterMetrics };
+    }
+
+    // Fallback if cache missed
+    const datasetRows = await getScopeDataset(student, scope);
+    const scopedStudents = buildScopedStudents(datasetRows);
+    return {
+      metricResults: await Promise.all(
+        RANKING_METRICS.map((metric) =>
+          getMetricRanking(student.id, scopedStudents, metric, metric.suffix)
+        )
+      ),
+      semesterMetrics: getSemesterRankings(student.id, datasetRows)
+    };
+  };
+
+  const [branchResolved, batchResolved] = await Promise.all([
+    getResolvedForScope(RANKING_SCOPES[0]),
+    getResolvedForScope(RANKING_SCOPES[1])
+  ]);
+
+  const [branchScope, batchScope] = await Promise.all([
+    getScopeRankings(student, RANKING_SCOPES[0], branchResolved),
+    getScopeRankings(student, RANKING_SCOPES[1], batchResolved)
+  ]);
 
   return {
     anchor: {
@@ -633,8 +674,8 @@ export async function getRankingsForStudent(studentId: number): Promise<Rankings
       passing_year: student.passing_year
     },
     scopes: {
-      branch: scopeResults.find((scope) => scope.key === "branch")!,
-      batch: scopeResults.find((scope) => scope.key === "batch")!
+      branch: branchScope,
+      batch: batchScope
     }
   };
 }

@@ -45,24 +45,49 @@ export async function ensureAppUserForSession(decoded: DecodedIdToken) {
     typeof decoded.name === "string" && decoded.name.trim().length > 0 ? decoded.name : null;
   const now = new Date();
 
-  const user = await prisma.appUser.upsert({
-    where: { firebaseUid: decoded.uid },
-    create: {
+  // Try to find the user first to avoid unnecessary writes
+  const existingUser = await prisma.appUser.findUnique({
+    where: { firebaseUid: decoded.uid }
+  });
+
+  if (existingUser) {
+    const lastLogin = existingUser.lastLoginAt;
+    // Only update login timestamp if it's been more than 1 hour or critical data changed
+    const needsUpdate =
+      !lastLogin ||
+      now.getTime() - lastLogin.getTime() > 1000 * 60 * 60 ||
+      existingUser.email !== email ||
+      existingUser.displayName !== displayName ||
+      existingUser.emailVerified !== Boolean(decoded.email_verified);
+
+    if (needsUpdate) {
+      const updatedUser = await prisma.appUser.update({
+        where: { id: existingUser.id },
+        data: {
+          email,
+          emailVerified: Boolean(decoded.email_verified),
+          displayName: displayName ?? existingUser.displayName,
+          lastLoginAt: now,
+          updatedAt: now
+        }
+      });
+      return toAppUser(updatedUser);
+    }
+
+    return toAppUser(existingUser);
+  }
+
+  // Fallback to creation if not found
+  const newUser = await prisma.appUser.create({
+    data: {
       firebaseUid: decoded.uid,
       email,
       emailVerified: Boolean(decoded.email_verified),
       displayName,
       role: "student",
       lastLoginAt: now
-    },
-    update: {
-      email,
-      emailVerified: Boolean(decoded.email_verified),
-      ...(displayName ? { displayName } : {}),
-      lastLoginAt: now,
-      updatedAt: now
     }
   });
 
-  return toAppUser(user);
+  return toAppUser(newUser);
 }

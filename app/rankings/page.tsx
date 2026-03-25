@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { LeaderboardTabs } from "@/components/leaderboard";
 import { getCurrentUserWithLink } from "@/lib/current-user-link";
-import { getRankingsForStudent } from "@/lib/queries/rankings";
+import { getStudentAppSnapshot } from "@/lib/queries/dashboard";
 
 export default async function RankingsPage() {
   const { user, link } = await getCurrentUserWithLink();
@@ -13,7 +13,8 @@ export default async function RankingsPage() {
     redirect("/");
   }
 
-  const rankings = link.student_id ? await getRankingsForStudent(link.student_id) : null;
+  const snapshot = link.student_id ? await getStudentAppSnapshot(link.student_id) : null;
+  const rankings = snapshot?.rankings ?? null;
   if (!rankings) {
     redirect("/");
   }

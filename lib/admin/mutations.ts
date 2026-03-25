@@ -5,6 +5,12 @@ import path from "node:path";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { getSql } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
+import {
+  clearAllDashboardCaches,
+  countDashboardCacheRows,
+  rebuildDashboardCacheForStudent,
+  rebuildDashboardCachesForLinkedStudents
+} from "@/lib/queries/dashboard";
 
 function toAuditJson(value: unknown) {
   return JSON.parse(
@@ -183,35 +189,20 @@ export async function updateUserRole(
       throw new Error("User not found.");
     }
 
-    if (targetUser.id === BigInt(adminUserId) && role !== "admin") {
-      throw new Error("You cannot demote your own admin account.");
+    if (targetUser.role !== role) {
+      throw new Error("Role conversion is disabled. Admin accounts are managed separately.");
     }
-
-    if (targetUser.role === "admin" && role !== "admin") {
-      const adminCount = await getAdminCount(tx);
-      if (adminCount <= 1) {
-        throw new Error("At least one admin account must remain.");
-      }
-    }
-
-    const updated = await tx.appUser.update({
-      where: { id: targetUser.id },
-      data: {
-        role,
-        updatedAt: new Date()
-      }
-    });
 
     await logAdminAudit(tx, {
       adminUserId,
-      actionKey: "users.update_role",
+      actionKey: "users.role_noop",
       targetTable: "app_users",
       targetId: targetUserId,
       beforeJson: targetUser,
-      afterJson: updated
+      afterJson: targetUser
     });
 
-    return updated;
+    return targetUser;
   });
 }
 
@@ -264,7 +255,7 @@ export async function updateStudentLinkRecord(
     status: string;
   }
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.studentLink.findUnique({
       where: { id: BigInt(linkId) }
     });
@@ -318,8 +309,17 @@ export async function updateStudentLinkRecord(
       afterJson: updated
     });
 
-    return updated;
+    return {
+      updated,
+      cacheStudentId: updated.status === "linked" && updated.studentId ? Number(updated.studentId) : null
+    };
   });
+
+  if (result.cacheStudentId !== null) {
+    await rebuildDashboardCacheForStudent(result.cacheStudentId);
+  }
+
+  return result.updated;
 }
 
 export async function deleteStudentLinkRecord(adminUserId: number, linkId: number) {
@@ -358,7 +358,7 @@ export async function updateDataRequestRecord(
     action?: "save" | "approve" | "reject";
   }
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.dataRequest.findUnique({
       where: { id: BigInt(requestId) }
     });
@@ -409,8 +409,20 @@ export async function updateDataRequestRecord(
       afterJson: updatedRequest
     });
 
-    return updatedRequest;
+    return {
+      updatedRequest,
+      cacheStudentId:
+        input.action === "approve" && input.rollNo
+          ? Number((await resolveStudentByRollNo(tx, input.rollNo))?.id ?? 0) || null
+          : null
+    };
   });
+
+  if (result.cacheStudentId !== null) {
+    await rebuildDashboardCacheForStudent(result.cacheStudentId);
+  }
+
+  return result.updatedRequest;
 }
 
 export async function deleteDataRequestRecord(adminUserId: number, requestId: number) {
@@ -446,7 +458,7 @@ export async function attachStudentToAppUser(
     dob: string;
   }
 ) {
-  return prisma.$transaction(async (tx) => {
+  const linked = await prisma.$transaction(async (tx) => {
     const student = await tx.students.findUnique({
       where: { id: BigInt(studentId) }
     });
@@ -480,6 +492,9 @@ export async function attachStudentToAppUser(
 
     return linked;
   });
+
+  await rebuildDashboardCacheForStudent(studentId);
+  return linked;
 }
 
 export async function detachStudentFromAppUser(adminUserId: number, studentId: number) {
@@ -605,6 +620,7 @@ export async function rebuildStudentRankings(adminUserId: number) {
     FROM student_rankings
   `) as Array<{ total: number }>;
   const totalRows = rows[0]?.total ?? 0;
+  const snapshotRefresh = await rebuildDashboardCachesForLinkedStudents();
 
   await logAdminAudit(prisma, {
     adminUserId,
@@ -612,8 +628,53 @@ export async function rebuildStudentRankings(adminUserId: number) {
     targetTable: "student_rankings",
     targetId: "all",
     beforeJson: null,
+    afterJson: {
+      total_rows: totalRows,
+      refreshed_app_snapshots: snapshotRefresh.rebuiltStudents
+    }
+  });
+
+  return {
+    totalRows,
+    refreshedSnapshots: snapshotRefresh.rebuiltStudents
+  };
+}
+
+export async function clearStudentDashboardCaches(adminUserId: number) {
+  await clearAllDashboardCaches();
+  const totalRows = await countDashboardCacheRows();
+
+  await logAdminAudit(prisma, {
+    adminUserId,
+    actionKey: "dashboard_cache.clear",
+    targetTable: "student_app_snapshot_cache",
+    targetId: "all",
+    beforeJson: null,
     afterJson: { total_rows: totalRows }
   });
 
   return { totalRows };
+}
+
+export async function rebuildStudentDashboardCaches(adminUserId: number) {
+  const result = await rebuildDashboardCachesForLinkedStudents();
+  const totalRows = await countDashboardCacheRows();
+
+  await logAdminAudit(prisma, {
+    adminUserId,
+    actionKey: "dashboard_cache.rebuild",
+    targetTable: "student_app_snapshot_cache",
+    targetId: "linked_students",
+    beforeJson: null,
+    afterJson: {
+      rebuilt_students: result.rebuiltStudents,
+      linked_students: result.linkedStudents,
+      total_rows: totalRows
+    }
+  });
+
+  return {
+    ...result,
+    totalRows
+  };
 }

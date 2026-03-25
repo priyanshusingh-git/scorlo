@@ -2,6 +2,7 @@ import "server-only";
 
 import { getSql } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
+import { rebuildDashboardCacheForStudent } from "@/lib/queries/dashboard";
 
 export type StudentLinkState = {
   student_link_id: number | null;
@@ -93,6 +94,8 @@ export async function getStudentLinkForUser(appUserId: number) {
     }
   });
 
+  await rebuildDashboardCacheForStudent(studentId);
+
   return toStudentLinkState(updatedLink);
 }
 
@@ -180,6 +183,7 @@ export async function linkStudentRecord({
   let message = "Your account is under verification from the admin.";
   if (student) {
     message = "Academic record linked successfully.";
+    await rebuildDashboardCacheForStudent(student.id);
   } else {
     message =
       "We could not find a matching student record for this roll number. Your account is under admin verification.";

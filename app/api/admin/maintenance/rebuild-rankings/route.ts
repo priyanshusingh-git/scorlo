@@ -12,7 +12,7 @@ export async function POST() {
     const result = await rebuildStudentRankings(admin.id);
     return NextResponse.json({
       ok: true,
-      message: `Ranking cache rebuilt with ${result.totalRows} rows.`,
+      message: `Ranking cache rebuilt with ${result.totalRows} rows and ${result.refreshedSnapshots} app snapshots refreshed.`,
       result
     });
   } catch (error) {

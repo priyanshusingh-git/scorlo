@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, LoaderCircle } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 
 type LinkState = {
@@ -130,8 +130,9 @@ export function LinkStudentForm({
           disabled={pending}
           className="flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-accent-strong px-4 py-4 text-sm font-semibold text-white shadow-soft disabled:opacity-60"
         >
+          {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
           {pending ? "Linking..." : link ? "Update academic link" : "Link academic record"}
-          <ChevronRight className="h-4 w-4" />
+          {!pending ? <ChevronRight className="h-4 w-4" /> : null}
         </button>
       </form>
 

@@ -1,7 +1,7 @@
-import type { DashboardProgressPoint } from "@/lib/dashboard-view";
+import type { DashboardProgressChart } from "@/lib/queries/dashboard";
 
-export function ProgressChart({ points }: { points: DashboardProgressPoint[] }) {
-  if (points.length === 0) {
+export function ProgressChart({ chart }: { chart: DashboardProgressChart }) {
+  if (chart.points.length === 0) {
     return (
       <div className="soft-grid rounded-[1.5rem] border border-line bg-app/70 p-4">
         <p className="text-sm leading-7 text-slate">
@@ -10,25 +10,6 @@ export function ProgressChart({ points }: { points: DashboardProgressPoint[] }) 
       </div>
     );
   }
-
-  const progress = points;
-  const max = Math.max(...progress.map((point) => point.value));
-  const min = Math.min(...progress.map((point) => point.value));
-  const chartStart = 28;
-  const chartEnd = 300;
-  const step = progress.length === 1 ? 0 : (chartEnd - chartStart) / (progress.length - 1);
-
-  const coordinates = progress.map((point, index) => {
-    const x = chartStart + index * step;
-    const range = max - min || 1;
-    const normalized = (point.value - min) / range;
-    const y = 122 - normalized * 62;
-    return { ...point, x, y };
-  });
-
-  const path = coordinates
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
-    .join(" ");
 
   return (
     <div className="soft-grid rounded-[1.5rem] border border-line bg-app/70 p-4">
@@ -41,7 +22,7 @@ export function ProgressChart({ points }: { points: DashboardProgressPoint[] }) 
         </div>
         <div className="text-right">
           <div className="text-[11px] uppercase tracking-[0.14em] text-mist">Peak</div>
-          <div className="text-lg font-bold tracking-[-0.04em] text-ink">{max.toFixed(2)}</div>
+          <div className="text-lg font-bold tracking-[-0.04em] text-ink">{chart.peak_label}</div>
         </div>
       </div>
       <svg viewBox="0 0 340 150" className="h-44 w-full overflow-visible">
@@ -51,14 +32,10 @@ export function ProgressChart({ points }: { points: DashboardProgressPoint[] }) 
             <stop offset="100%" stopColor="rgba(15,139,141,0.02)" />
           </linearGradient>
         </defs>
-        <path d={`${path} L ${chartEnd} 132 L ${chartStart} 132 Z`} fill="url(#progressFill)" />
-        <path
-          d={`M${chartStart} 132 H${chartEnd}`}
-          stroke="rgba(123, 135, 148, 0.25)"
-          strokeWidth="1"
-        />
-        <path d={path} fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinecap="round" />
-        {coordinates.map((point) => (
+        <path d={chart.fill_path} fill="url(#progressFill)" />
+        <path d="M28 132 H300" stroke="rgba(123, 135, 148, 0.25)" strokeWidth="1" />
+        <path d={chart.path} fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinecap="round" />
+        {chart.coordinates.map((point) => (
           <g key={point.semester}>
             <circle cx={point.x} cy={point.y} r="6" fill="var(--accent)" />
             <text
