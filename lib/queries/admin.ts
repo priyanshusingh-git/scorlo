@@ -117,7 +117,10 @@ export type AdminMaintenanceInfo = {
 
 function buildSearchPattern(query: string | undefined) {
   const trimmed = query?.trim() ?? "";
-  return trimmed ? `%${trimmed}%` : null;
+  return {
+    enabled: trimmed.length > 0,
+    value: trimmed ? `%${trimmed}%` : ""
+  };
 }
 
 export async function getAdminOverview(): Promise<AdminOverview> {
@@ -228,11 +231,11 @@ export async function searchAdminUsers({
     ) dr ON TRUE
     WHERE (${roleFilter} = '' OR au.role = ${roleFilter})
       AND (
-        ${pattern} IS NULL
-        OR au.email ILIKE ${pattern}
-        OR COALESCE(au.display_name, '') ILIKE ${pattern}
-        OR COALESCE(sl.roll_no, '') ILIKE ${pattern}
-        OR COALESCE(st.name, '') ILIKE ${pattern}
+        ${!pattern.enabled}
+        OR au.email ILIKE ${pattern.value}
+        OR COALESCE(au.display_name, '') ILIKE ${pattern.value}
+        OR COALESCE(sl.roll_no, '') ILIKE ${pattern.value}
+        OR COALESCE(st.name, '') ILIKE ${pattern.value}
       )
     ORDER BY au.updated_at DESC, au.id DESC
     LIMIT 50
@@ -268,10 +271,10 @@ export async function searchAdminLinks({
     LEFT JOIN students st ON st.id = sl.student_id
     WHERE (${statusFilter} = '' OR sl.status = ${statusFilter})
       AND (
-        ${pattern} IS NULL
-        OR sl.roll_no ILIKE ${pattern}
-        OR au.email ILIKE ${pattern}
-        OR COALESCE(st.name, '') ILIKE ${pattern}
+        ${!pattern.enabled}
+        OR sl.roll_no ILIKE ${pattern.value}
+        OR au.email ILIKE ${pattern.value}
+        OR COALESCE(st.name, '') ILIKE ${pattern.value}
       )
     ORDER BY sl.updated_at DESC, sl.id DESC
     LIMIT 50
@@ -304,10 +307,10 @@ export async function searchAdminDataRequests({
     JOIN app_users au ON au.id = dr.app_user_id
     WHERE (${statusFilter} = '' OR dr.status = ${statusFilter})
       AND (
-        ${pattern} IS NULL
-        OR dr.roll_no ILIKE ${pattern}
-        OR au.email ILIKE ${pattern}
-        OR COALESCE(dr.notes, '') ILIKE ${pattern}
+        ${!pattern.enabled}
+        OR dr.roll_no ILIKE ${pattern.value}
+        OR au.email ILIKE ${pattern.value}
+        OR COALESCE(dr.notes, '') ILIKE ${pattern.value}
       )
     ORDER BY dr.updated_at DESC, dr.id DESC
     LIMIT 50
@@ -340,10 +343,10 @@ export async function searchAdminStudents({ query }: { query?: string }) {
     LEFT JOIN student_links sl ON sl.student_id = s.id
     LEFT JOIN app_users au ON au.id = sl.app_user_id
     WHERE (
-      ${pattern} IS NULL
-      OR s.roll_no ILIKE ${pattern}
-      OR COALESCE(s.name, '') ILIKE ${pattern}
-      OR COALESCE(s.institute_name, '') ILIKE ${pattern}
+      ${!pattern.enabled}
+      OR s.roll_no ILIKE ${pattern.value}
+      OR COALESCE(s.name, '') ILIKE ${pattern.value}
+      OR COALESCE(s.institute_name, '') ILIKE ${pattern.value}
     )
     ORDER BY s.updated_at DESC, s.id DESC
     LIMIT 50

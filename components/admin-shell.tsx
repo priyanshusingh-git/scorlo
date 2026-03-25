@@ -1,9 +1,8 @@
 import { BellDot } from "lucide-react";
 import { AdminDesktopNav } from "@/components/admin-nav";
-import { BottomNav } from "@/components/bottom-nav";
+import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { LogoutButton } from "@/components/logout-button";
 import { StatusBadge } from "@/components/status-badge";
-import { adminNavItems } from "@/lib/admin-nav-items";
 
 export function AdminShell({
   children,
@@ -63,7 +62,7 @@ export function AdminShell({
           <main className="flex-1 space-y-5 lg:space-y-6">{children}</main>
         </div>
       </div>
-      <BottomNav items={adminNavItems} />
+      <AdminBottomNav />
     </div>
   );
 }
