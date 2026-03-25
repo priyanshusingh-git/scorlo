@@ -62,7 +62,7 @@ export function SignInForm() {
   const resending = activeAction === "resend";
 
   useEffect(() => {
-    // Initialize Firebase and App Check immediately on mount
+    // Initialize Firebase client immediately on mount
     getFirebaseClientAuth();
   }, []);
 
