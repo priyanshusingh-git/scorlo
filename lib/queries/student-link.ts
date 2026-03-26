@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSql } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
-import { rebuildDashboardCacheForStudent } from "@/lib/queries/dashboard";
+import { deleteDashboardCacheForStudent, rebuildDashboardCacheForStudent } from "@/lib/queries/dashboard";
 
 export type StudentLinkState = {
   student_link_id: number | null;
@@ -62,12 +62,25 @@ export async function getStudentLinkForUser(appUserId: number) {
 
   if (!link) return null;
 
-  if (link.status === "linked" && link.studentId !== null) {
+  if (link.status !== "linked") {
+    return toStudentLinkState(link);
+  }
+
+  if (link.studentId !== null) {
     return toStudentLinkState(link);
   }
 
   const studentId = await findStudentIdByRollNo(link.rollNo);
   if (studentId === null) {
+    return toStudentLinkState(link);
+  }
+
+  const existingStudentLink = await prisma.studentLink.findUnique({
+    where: { studentId: BigInt(studentId) },
+    select: { appUserId: true }
+  });
+
+  if (existingStudentLink && existingStudentLink.appUserId !== BigInt(appUserId)) {
     return toStudentLinkState(link);
   }
 
@@ -108,6 +121,13 @@ export async function linkStudentRecord({
   rollNo: string;
   dob: string;
 }): Promise<LinkStudentResult> {
+  const existingLink = await prisma.studentLink.findUnique({
+    where: { appUserId: BigInt(appUserId) },
+    select: {
+      studentId: true
+    }
+  });
+
   const studentIdValue = await findStudentIdByRollNo(rollNo);
   const student = studentIdValue === null ? null : { id: studentIdValue };
   const status = student ? "linked" : "pending_data";
@@ -158,6 +178,15 @@ export async function linkStudentRecord({
     }
   });
 
+  const staleCacheStudentId =
+    existingLink?.studentId !== null &&
+    existingLink?.studentId !== undefined &&
+    Number(existingLink.studentId) !== (student?.id ?? null)
+      ? Number(existingLink.studentId)
+      : student === null && existingLink?.studentId
+        ? Number(existingLink.studentId)
+        : null;
+
   if (!student) {
     const existingPendingRequest = await prisma.dataRequest.findFirst({
       where: {
@@ -181,6 +210,10 @@ export async function linkStudentRecord({
   }
 
   let message = "Your account is under verification from the admin.";
+  if (staleCacheStudentId !== null) {
+    await deleteDashboardCacheForStudent(staleCacheStudentId);
+  }
+
   if (student) {
     message = "Academic record linked successfully.";
     await rebuildDashboardCacheForStudent(student.id);

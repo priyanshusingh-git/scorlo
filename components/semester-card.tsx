@@ -23,13 +23,11 @@ export function SemesterCards({
           <Accordion.Header>
             <Accordion.Trigger className="group flex w-full flex-col gap-4 px-5 py-5 text-left md:flex-row md:items-center md:justify-between">
               <div className="min-w-0">
-                <div className="text-[11px] uppercase tracking-[0.18em] text-mist">Recorded semester</div>
-                <div className="mt-1 text-xl font-bold tracking-[-0.04em] text-ink">
+                <div className="text-xl font-bold tracking-[-0.04em] text-ink">
                   Semester {semester.semester_no}
                 </div>
-                <div className="mt-2 text-sm text-slate">
-                  SGPA {semester.sgpa ?? "--"} • {semester.total_marks_obtained ?? "--"} marks •{" "}
-                  {semester.formatted_declaration_date}
+                <div className="mt-1 text-sm text-slate">
+                  SGPA {semester.sgpa ?? "--"} • {semester.total_marks_obtained ?? "--"} marks
                 </div>
               </div>
               <div className="flex items-center gap-3 self-start md:self-center">

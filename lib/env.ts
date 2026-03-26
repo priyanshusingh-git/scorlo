@@ -14,7 +14,6 @@ const serverEnvSchema = z.object({
   FIREBASE_PROJECT_ID: z.string().min(1),
   FIREBASE_CLIENT_EMAIL: z.string().min(1),
   FIREBASE_PRIVATE_KEY: z.string().min(1),
-  SCORLO_DATA_KEY: z.string().min(32),
   FIREBASE_SESSION_COOKIE_NAME: z.string().min(1).default("__session")
 });
 
@@ -35,7 +34,6 @@ export function getServerEnv() {
     FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
     FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
     FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    SCORLO_DATA_KEY: process.env.SCORLO_DATA_KEY,
     FIREBASE_SESSION_COOKIE_NAME: process.env.FIREBASE_SESSION_COOKIE_NAME
   });
 }

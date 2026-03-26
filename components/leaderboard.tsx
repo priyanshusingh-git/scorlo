@@ -35,9 +35,6 @@ function RankCard({
       <div className="mt-3 flex items-end justify-between gap-4">
         <div>
           <div className="text-[2.4rem] font-semibold tracking-[-0.08em] text-ink">{rank ? `#${rank}` : "--"}</div>
-          <div className="mt-1 text-sm text-slate">
-            {totalStudents > 0 ? `${totalStudents} students` : "Cohort unavailable"}
-          </div>
         </div>
         <div className="text-right">
           <div className="text-[11px] uppercase tracking-[0.16em] text-mist">{scoreLabel}</div>
@@ -55,22 +52,24 @@ function SemesterRankRow({
   label,
   score,
   rank,
-  totalStudents,
   percentileLabel
 }: {
   label: string;
   score: string | null;
   rank: number | null;
-  totalStudents: number;
   percentileLabel: string;
 }) {
   return (
-    <div className="glass-card grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[1.35rem] border border-white/70 px-4 py-4">
-      <div className="min-w-0">
-        <div className="text-sm font-semibold text-ink">{label}</div>
-        <div className="mt-1 text-xs text-slate">
-          {score ? `SGPA ${score}` : "SGPA unavailable"} • {rank ? `#${rank}` : "Rank unavailable"} •{" "}
-          {totalStudents > 0 ? `${totalStudents} students` : "Cohort unavailable"}
+    <div className="surface-panel relative flex items-center justify-between gap-4 rounded-[1.35rem] border border-white/70 px-5 py-4 shadow-soft">
+      <div className="flex items-center gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/5 text-lg font-bold text-accent">
+          {rank ? `#${rank}` : "--"}
+        </div>
+        <div>
+          <div className="text-sm font-bold text-ink">{label}</div>
+          <div className="mt-0.5 text-xs text-slate">
+            {score ? `SGPA ${score}` : "SGPA unavailable"}
+          </div>
         </div>
       </div>
       <StatusBadge tone="warning">{percentileLabel}</StatusBadge>
@@ -122,14 +121,7 @@ export function LeaderboardTabs({
     <div className="space-y-5">
       <SectionBlock
         title="My ranks"
-        description="A quick view of where you stand across your current academic cohort."
       >
-        <div className="mb-5 flex flex-wrap gap-2">
-          <StatusBadge tone="warning">{currentScope.label}</StatusBadge>
-          {rankings.anchor.passing_year ? <StatusBadge tone="info">Batch {rankings.anchor.passing_year}</StatusBadge> : null}
-          <StatusBadge tone="accent">{currentScope.total_students} students</StatusBadge>
-          {isPending ? <StatusBadge tone="info">Updating view...</StatusBadge> : null}
-        </div>
 
         <Tabs.Root
           value={displayedScopeKey}
@@ -141,7 +133,7 @@ export function LeaderboardTabs({
           className="space-y-5"
         >
           <Tabs.List
-            className={`glass-card grid grid-cols-2 gap-2 rounded-[1.5rem] border border-white/70 p-1 transition xl:max-w-md ${
+            className={`glass-card shadow-soft grid grid-cols-2 gap-2 rounded-[1.5rem] border border-white/70 p-1 transition xl:max-w-md ${
               isPending ? "opacity-80" : ""
             }`}
           >
@@ -161,11 +153,6 @@ export function LeaderboardTabs({
             </Tabs.Trigger>
           </Tabs.List>
 
-          <div className="glass-card rounded-[1.6rem] border border-white/70 px-5 py-5">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-mist">Cohort signature</div>
-            <div className="mt-2 text-xl font-semibold tracking-[-0.04em] text-ink">{currentScope.summary_label || "Ranking cohort"}</div>
-            <div className="mt-2 text-sm leading-7 text-slate">{currentScope.description}</div>
-          </div>
 
           <div className={`grid grid-cols-1 gap-4 transition lg:grid-cols-3 ${isPending ? "opacity-80" : ""}`}>
             {metricOrder.map((metricKey) => {
@@ -198,7 +185,6 @@ export function LeaderboardTabs({
                 label={semester.label}
                 score={semester.self_score}
                 rank={semester.self_rank}
-                totalStudents={semester.total_students}
                 percentileLabel={semester.percentile_label}
               />
             ))

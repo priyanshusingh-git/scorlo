@@ -19,7 +19,6 @@ export function LoginBackground() {
           }} 
         />
       </div>
-      {/* Dynamic noise overlay for texture */}
       <div 
         className="absolute inset-0 opacity-[0.4] brightness-100 contrast-100 mix-blend-overlay"
         style={{

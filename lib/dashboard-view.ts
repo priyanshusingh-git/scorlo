@@ -39,7 +39,7 @@ export function buildMetricTiles(dashboard: DashboardPayload): DashboardMetricTi
     {
       label: "Overall %",
       value: formatMetricValue(dashboard.metrics.overall_percentage),
-      hint: "Stored academic aggregate from the imported record",
+      hint: "Combined academic aggregate based on available results",
       tone: "warning"
     },
     {
@@ -113,7 +113,7 @@ export function getHeroSummary(dashboard: DashboardPayload) {
     ? {
         label: "Overall percentage",
         value: dashboard.metrics.overall_percentage,
-        hint: "Derived academic aggregate currently stored in Neon."
+        hint: "Academic aggregate derived from all available results"
       }
     : {
         label: "Latest SGPA",

@@ -10,6 +10,7 @@ import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
 import { useStudentShell } from "@/components/student-shell-provider";
 
+/* Definitive Layout: 'Current standing' reordered before 'Progress' for a high-impact arrival */
 export default function HomePage() {
   const { user, link, snapshot } = useStudentShell();
   const needsLink = !link;
@@ -63,15 +64,6 @@ export default function HomePage() {
         <>
           <HeroCard
             name={dashboard.student.name ?? user.email ?? "Student"}
-            summary={homeView?.hero.summary ?? "Your academic overview is ready."}
-            branch={dashboard.student.branch_name}
-            rollNo={dashboard.student.roll_no}
-            status={homeView?.hero.status ?? "Linked"}
-            primarySignalLabel={homeView?.hero.latest_signal_label ?? "Latest SGPA"}
-            primarySignal={homeView?.hero.latest_signal_value ?? "--"}
-            primarySignalHint={homeView?.hero.latest_signal_hint ?? "Academic signal"}
-            totalSemesters={dashboard.semesters.length}
-            institute={dashboard.student.institute_name}
           />
 
           <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -80,21 +72,7 @@ export default function HomePage() {
             ))}
           </section>
 
-          <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.8fr)]">
-            <SectionBlock title="Progress">
-              <ProgressChart
-                chart={
-                  homeView?.progress_chart ?? {
-                    points: [],
-                    peak_label: "--",
-                    path: "",
-                    fill_path: "",
-                    coordinates: []
-                  }
-                }
-              />
-            </SectionBlock>
-
+          <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.35fr)]">
             <SectionBlock
               title="Current standing"
               className="h-full"
@@ -113,7 +91,6 @@ export default function HomePage() {
                       : "No semester result yet")}
                 </StatusBadge>
               </div>
-              <p className="mt-4 text-sm leading-7 text-slate">{homeView?.standing.trend_note}</p>
               <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="glass-card rounded-[1.35rem] border border-white/70 px-4 py-4">
                   <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Best semester</div>
@@ -128,6 +105,20 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
+            </SectionBlock>
+
+            <SectionBlock title="Progress">
+              <ProgressChart
+                chart={
+                  homeView?.progress_chart ?? {
+                    points: [],
+                    peak_label: "--",
+                    path: "",
+                    fill_path: "",
+                    coordinates: []
+                  }
+                }
+              />
             </SectionBlock>
           </section>
         </>

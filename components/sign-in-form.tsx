@@ -283,7 +283,7 @@ export function SignInForm() {
             ) : (
               <span className="flex items-center gap-2">
                 {mode === "login"
-                  ? "Sign in to Scorlo"
+                  ? "Sign in"
                   : mode === "register"
                     ? "Create Account"
                     : "Reset Password"}
@@ -306,7 +306,7 @@ export function SignInForm() {
               Forgot password?
             </button>
             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-mist">
-              New to Scorlo?{" "}
+              New user?{" "}
               <button
                 type="button"
                 onClick={() => switchMode("register")}

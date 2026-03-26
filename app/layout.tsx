@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Host_Grotesk, Instrument_Serif } from "next/font/google";
+import { MobileAppSplash } from "@/components/mobile-app-splash";
 import { PwaRegister } from "@/components/pwa-register";
 import "./globals.css";
 
@@ -13,7 +14,8 @@ const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
   variable: "--font-display",
   weight: "400",
-  display: "swap"
+  display: "swap",
+  preload: false
 });
 
 export const metadata: Metadata = {
@@ -27,6 +29,14 @@ export const metadata: Metadata = {
   },
   formatDetection: {
     telephone: false
+  },
+  icons: {
+    icon: [
+      { url: "/favicon-32x32.png", sizes: "32x32" },
+      { url: "/favicon-48x48.png", sizes: "48x48" },
+      { url: "/icon.png" }
+    ],
+    apple: "/icons/apple-touch-icon.png"
   }
 };
 
@@ -41,6 +51,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${hostGrotesk.variable} ${instrumentSerif.variable}`}>
+        <PwaRegister />
+        <MobileAppSplash />
         {children}
       </body>
     </html>

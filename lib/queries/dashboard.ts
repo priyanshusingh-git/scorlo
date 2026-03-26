@@ -103,6 +103,8 @@ export type StudentAppSnapshot = {
     best_semester_label: string;
   };
   rankings: RankingsPayload | null;
+  /** Internal cache version — bump SNAPSHOT_VERSION when snapshot shape changes */
+  _v?: number;
 };
 
 type MetricRow = {
@@ -122,6 +124,12 @@ type CacheRow = {
   payload_json: StudentAppSnapshot | DashboardPayload | string;
   updated_at: string;
 };
+
+/**
+ * Bump this version whenever the shape of `StudentAppSnapshot` changes.
+ * Cached blobs that don't match will be treated as a cache miss and rebuilt.
+ */
+const SNAPSHOT_VERSION = 3;
 
 let cacheSchemaPromise: Promise<void> | null = null;
 
@@ -170,11 +178,37 @@ function formatDeclarationDate(value: string | null) {
   }).format(date);
 }
 
-function getSubjectStatus(
-  subject: SubjectRow,
-  copSubjects: string[]
+function normalizeGrade(grade: string | null | undefined) {
+  return (grade ?? "").trim().toUpperCase();
+}
+
+function getGraceSubjectCodes(subjects: Array<{ code: string | null; grade: string | null }>) {
+  return new Set(
+    subjects
+      .filter((subject) => normalizeGrade(subject.grade) === "E#" && subject.code)
+      .map((subject) => subject.code!.toUpperCase())
+  );
+}
+
+function getEffectiveCarrySubjects(
+  copSubjects: string[],
+  subjects: Array<{ code: string | null; grade: string | null }>
 ) {
-  const grade = (subject.grade ?? "").trim().toUpperCase();
+  const graceSubjectCodes = getGraceSubjectCodes(subjects);
+
+  return copSubjects.filter((code) => !graceSubjectCodes.has(code.trim().toUpperCase()));
+}
+
+function getSubjectStatus(subject: SubjectRow, copSubjects: string[]) {
+  const grade = normalizeGrade(subject.grade);
+
+  if (grade === "E#") {
+    return {
+      label: "Grace clear",
+      className: "text-success"
+    };
+  }
+
   const isCarryPaper =
     (subject.code !== null && copSubjects.includes(subject.code)) ||
     grade === "F" ||
@@ -188,13 +222,6 @@ function getSubjectStatus(
     };
   }
 
-  if (grade === "E#") {
-    return {
-      label: "Grace clear",
-      className: "text-success"
-    };
-  }
-
   if (grade === "WH" || grade === "UFM") {
     return {
       label: "Review",
@@ -203,7 +230,7 @@ function getSubjectStatus(
   }
 
   return {
-    label: "Clear",
+    label: "Cleared",
     className: "text-success"
   };
 }
@@ -211,12 +238,11 @@ function getSubjectStatus(
 function getSemesterStatus(semester: {
   result_status: string | null;
   cop_subjects: string[];
-  subjects: Array<{ grade: string | null }>;
+  subjects: Array<{ code: string | null; grade: string | null }>;
 }) {
-  const activeCarryCount = semester.cop_subjects.length;
+  const activeCarryCount = getEffectiveCarrySubjects(semester.cop_subjects, semester.subjects).length;
   const hasGraceClear = semester.subjects.some((subject) => {
-    const grade = (subject.grade ?? "").trim().toUpperCase();
-    return grade === "E#";
+    return normalizeGrade(subject.grade) === "E#";
   });
   const rawStatus = (semester.result_status ?? "").trim().toUpperCase();
 
@@ -236,14 +262,14 @@ function getSemesterStatus(semester: {
 
   if (rawStatus.includes("PASS")) {
     return {
-      label: "PASS",
+      label: "Cleared",
       tone: "success" as const
     };
   }
 
   if (rawStatus.includes("CP") || rawStatus.includes("PWG")) {
     return {
-      label: "CP(0)",
+      label: "Cleared",
       tone: "success" as const
     };
   }
@@ -270,7 +296,7 @@ function buildMetricTiles(dashboard: DashboardPayload): DashboardMetricTile[] {
     {
       label: "Overall %",
       value: dashboard.metrics.overall_percentage ?? "--",
-      hint: "Stored academic aggregate from the imported record",
+      hint: "Combined academic aggregate based on available results",
       tone: "warning"
     },
     {
@@ -386,7 +412,7 @@ function buildHeroView(dashboard: DashboardPayload) {
         : "Academic record synced from Neon.",
       latest_signal_label: "Overall percentage",
       latest_signal_value: dashboard.metrics.overall_percentage,
-      latest_signal_hint: "Derived academic aggregate currently stored in Neon.",
+      latest_signal_hint: "Academic aggregate derived from all available results",
       status:
         activeBacks === 0
           ? "No active backs"
@@ -448,7 +474,8 @@ async function readSnapshotCache(studentId: number) {
     "dashboard" in payload &&
     "home_view" in payload &&
     "results_view" in payload &&
-    "rankings" in payload
+    "rankings" in payload &&
+    (payload as StudentAppSnapshot)._v === SNAPSHOT_VERSION
   ) {
     return payload as StudentAppSnapshot;
   }
@@ -459,7 +486,7 @@ async function readSnapshotCache(studentId: number) {
 async function writeSnapshotCache(studentId: number, payload: StudentAppSnapshot) {
   await ensureSnapshotCacheTable();
   const sql = getSql();
-  const serialized = JSON.stringify(payload);
+  const serialized = JSON.stringify({ ...payload, _v: SNAPSHOT_VERSION });
 
   await sql`
     INSERT INTO student_app_snapshot_cache (
@@ -599,7 +626,14 @@ async function buildDashboardDataForStudent(studentId: number): Promise<Dashboar
   for (const subject of subjectRows) {
     if (!semesterIds.has(subject.semester_result_id)) continue;
 
-    const subjectStatus = getSubjectStatus(subject, semesters.find((semester) => semester.id === subject.semester_result_id)?.cop_subjects ?? []);
+    const semester = semesters.find((entry) => entry.id === subject.semester_result_id);
+    const effectiveCarrySubjects = getEffectiveCarrySubjects(
+      semester?.cop_subjects ?? [],
+      subjectRows
+        .filter((entry) => entry.semester_result_id === subject.semester_result_id)
+        .map((entry) => ({ code: entry.code, grade: entry.grade }))
+    );
+    const subjectStatus = getSubjectStatus(subject, effectiveCarrySubjects);
     const entry = subjectsBySemester.get(subject.semester_result_id) ?? [];
     entry.push({
       id: subject.id,

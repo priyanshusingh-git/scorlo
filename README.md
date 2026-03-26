@@ -1,32 +1,23 @@
 # Scorlo
 
-Scorlo is a separate Next.js app scaffold for the mobile-first student experience planned on top of the AKTU ingestion pipeline.
+Scorlo is a mobile-first academic portal for AKTU students built with Next.js, Firebase Authentication, Prisma, and Neon.
 
-## Included in this first pass
+## Stack
 
-- App Router + TypeScript setup
-- custom Scorlo design system with CSS variables and Tailwind mapping
-- mobile-first student shell
-- first polished screens:
-  - `/login`
-  - `/`
-  - `/results`
-  - `/rankings`
-  - `/profile`
-- basic PWA manifest and service worker
+- Next.js App Router + TypeScript
+- Tailwind CSS with a custom design system
 - Firebase client auth + Firebase Admin session cookies
-- Neon-backed server query layer
-- Prisma schema + generated client scaffold for app tables
-- app-specific Neon schema for:
-  - `app_users`
-  - `student_links`
-  - `data_requests`
-- backend route handlers:
-  - `POST /api/auth/session`
-  - `DELETE /api/auth/session`
-  - `GET /api/me`
-  - `GET /api/dashboard`
-  - `POST /api/link-student`
+- Neon PostgreSQL + Prisma
+- Admin console for users, links, students, and maintenance
+
+## Core features
+
+- Student login, registration, email verification, and password reset
+- Student linking by roll number with DOB capture
+- Student dashboard, results, profile, and personal ranks
+- Snapshot caching for linked student app data
+- Precomputed ranking cache for student standings
+- Admin dashboard for moderation and maintenance tasks
 
 ## Commands
 
@@ -41,20 +32,25 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Required setup
 
 1. Copy `.env.example` to `.env.local`.
-2. Fill in Firebase web config values for the `NEXT_PUBLIC_*` variables.
-3. Fill in Firebase Admin values:
+2. Set the Firebase web config values:
+   - `NEXT_PUBLIC_FIREBASE_API_KEY`
+   - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+   - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+   - `NEXT_PUBLIC_FIREBASE_APP_ID`
+   - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+   - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+3. Set the Firebase Admin values:
    - `FIREBASE_PROJECT_ID`
    - `FIREBASE_CLIENT_EMAIL`
    - `FIREBASE_PRIVATE_KEY`
+   - optional: `FIREBASE_SESSION_COOKIE_NAME`
 4. Set `DATABASE_URL` to your Neon connection string.
-5. Optionally set `DIRECT_URL` to Neon's direct connection string for Prisma CLI commands like `db pull` and `studio`.
-6. Set `SCORLO_DATA_KEY` to a long random secret for DOB encryption.
-7. Run the SQL in `/Users/priyanshu/Downloads/AktuBot-main/scorlo/docs/neon-app-schema.sql` against the same Neon database that already contains the academic tables.
+5. Optionally set `DIRECT_URL` for Prisma CLI commands.
+6. Run [docs/neon-app-schema.sql](/Users/priyanshu/Downloads/AktuBot-main/scorlo/docs/neon-app-schema.sql) against the same Neon database that contains the academic tables.
 
 ## Notes
 
-- Current data is mocked in `/Users/priyanshu/Downloads/AktuBot-main/scorlo/lib/mock-data.ts`
-- Firebase auth and Neon-backed data access are now scaffolded, but they require your real `.env.local` values to run
-- Prisma is scaffolded in `/Users/priyanshu/Downloads/AktuBot-main/scorlo/prisma/schema.prisma` and the shared client is in `/Users/priyanshu/Downloads/AktuBot-main/scorlo/lib/prisma.ts`
-- The UI system is documented in `/Users/priyanshu/Downloads/AktuBot-main/scorlo/docs/scorlo-design-tokens.md`
-- Academic tables are expected to already exist from the importer in `/Users/priyanshu/Downloads/AktuBot-main/aktu_neon`
+- Prisma schema: [prisma/schema.prisma](/Users/priyanshu/Downloads/AktuBot-main/scorlo/prisma/schema.prisma)
+- Shared Prisma client: [lib/prisma.ts](/Users/priyanshu/Downloads/AktuBot-main/scorlo/lib/prisma.ts)
+- Design tokens: [docs/scorlo-design-tokens.md](/Users/priyanshu/Downloads/AktuBot-main/scorlo/docs/scorlo-design-tokens.md)
+- Academic source tables are expected to be maintained by the importer outside this app.

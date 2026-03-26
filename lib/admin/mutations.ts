@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import {
   clearAllDashboardCaches,
   countDashboardCacheRows,
+  deleteDashboardCacheForStudent,
   rebuildDashboardCacheForStudent,
   rebuildDashboardCachesForLinkedStudents
 } from "@/lib/queries/dashboard";
@@ -144,6 +145,8 @@ async function assignStudentToUser(
     where: { appUserId }
   });
 
+  const previousStudentId = targetLink?.studentId ?? null;
+
   const link = targetLink
     ? await tx.studentLink.update({
         where: { id: targetLink.id },
@@ -172,7 +175,19 @@ async function assignStudentToUser(
     }
   });
 
-  return link;
+  return {
+    link,
+    previousStudentId:
+      previousStudentId !== null && previousStudentId !== studentId ? Number(previousStudentId) : null
+  };
+}
+
+type AssignedStudentLinkResult = Awaited<ReturnType<typeof assignStudentToUser>>;
+
+function isAssignedStudentLinkResult(
+  value: Awaited<ReturnType<typeof prisma.studentLink.update>> | AssignedStudentLinkResult
+): value is AssignedStudentLinkResult {
+  return "link" in value;
 }
 
 export async function updateUserRole(
@@ -207,7 +222,7 @@ export async function updateUserRole(
 }
 
 export async function deleteUserAccount(adminUserId: number, targetUserId: number) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const targetUser = await tx.appUser.findUnique({
       where: { id: BigInt(targetUserId) },
       include: {
@@ -243,7 +258,15 @@ export async function deleteUserAccount(adminUserId: number, targetUserId: numbe
       beforeJson: targetUser,
       afterJson: null
     });
+
+    return {
+      cacheStudentId: targetUser.studentLink?.studentId ? Number(targetUser.studentLink.studentId) : null
+    };
   });
+
+  if (result.cacheStudentId !== null) {
+    await deleteDashboardCacheForStudent(result.cacheStudentId);
+  }
 }
 
 export async function updateStudentLinkRecord(
@@ -267,7 +290,7 @@ export async function updateStudentLinkRecord(
     const nextStatus = input.status.trim();
     const student = await resolveStudentByRollNo(tx, input.rollNo);
 
-    let updated;
+    let updated: Awaited<ReturnType<typeof tx.studentLink.update>> | AssignedStudentLinkResult;
     if (nextStatus === "linked") {
       if (!student) {
         throw new Error("No student record exists for the provided roll number.");
@@ -309,11 +332,24 @@ export async function updateStudentLinkRecord(
       afterJson: updated
     });
 
+    const normalizedUpdated = isAssignedStudentLinkResult(updated) ? updated.link : updated;
+    const staleCacheStudentId = isAssignedStudentLinkResult(updated)
+      ? updated.previousStudentId
+      : existing.studentId !== null && nextStatus !== "linked"
+        ? Number(existing.studentId)
+        : null;
+
     return {
-      updated,
-      cacheStudentId: updated.status === "linked" && updated.studentId ? Number(updated.studentId) : null
+      updated: normalizedUpdated,
+      staleCacheStudentId,
+      cacheStudentId:
+        normalizedUpdated.status === "linked" && normalizedUpdated.studentId ? Number(normalizedUpdated.studentId) : null
     };
   });
+
+  if (result.staleCacheStudentId !== null && result.staleCacheStudentId !== result.cacheStudentId) {
+    await deleteDashboardCacheForStudent(result.staleCacheStudentId);
+  }
 
   if (result.cacheStudentId !== null) {
     await rebuildDashboardCacheForStudent(result.cacheStudentId);
@@ -323,7 +359,7 @@ export async function updateStudentLinkRecord(
 }
 
 export async function deleteStudentLinkRecord(adminUserId: number, linkId: number) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.studentLink.findUnique({
       where: { id: BigInt(linkId) }
     });
@@ -344,7 +380,15 @@ export async function deleteStudentLinkRecord(adminUserId: number, linkId: numbe
       beforeJson: existing,
       afterJson: null
     });
+
+    return {
+      cacheStudentId: existing.studentId ? Number(existing.studentId) : null
+    };
   });
+
+  if (result.cacheStudentId !== null) {
+    await deleteDashboardCacheForStudent(result.cacheStudentId);
+  }
 }
 
 export async function updateDataRequestRecord(
@@ -378,18 +422,21 @@ export async function updateDataRequestRecord(
       }
     });
 
+    let staleCacheStudentId: number | null = null;
+
     if (input.action === "approve") {
       const student = await resolveStudentByRollNo(tx, input.rollNo);
       if (!student) {
         throw new Error("Cannot approve without a matching student record.");
       }
 
-      await assignStudentToUser(tx, {
+      const linkedResult = await assignStudentToUser(tx, {
         appUserId: existing.appUserId,
         studentId: student.id,
         rollNo: input.rollNo,
         dob: input.dob
       });
+      staleCacheStudentId = linkedResult.previousStudentId;
 
       updatedRequest = await tx.dataRequest.update({
         where: { id: existing.id },
@@ -411,12 +458,17 @@ export async function updateDataRequestRecord(
 
     return {
       updatedRequest,
+      staleCacheStudentId,
       cacheStudentId:
         input.action === "approve" && input.rollNo
           ? Number((await resolveStudentByRollNo(tx, input.rollNo))?.id ?? 0) || null
           : null
     };
   });
+
+  if (result.staleCacheStudentId !== null && result.staleCacheStudentId !== result.cacheStudentId) {
+    await deleteDashboardCacheForStudent(result.staleCacheStudentId);
+  }
 
   if (result.cacheStudentId !== null) {
     await rebuildDashboardCacheForStudent(result.cacheStudentId);
@@ -458,7 +510,7 @@ export async function attachStudentToAppUser(
     dob: string;
   }
 ) {
-  const linked = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const student = await tx.students.findUnique({
       where: { id: BigInt(studentId) }
     });
@@ -474,7 +526,7 @@ export async function attachStudentToAppUser(
       throw new Error("App user not found.");
     }
 
-    const linked = await assignStudentToUser(tx, {
+    const linkedResult = await assignStudentToUser(tx, {
       appUserId: appUser.id,
       studentId: student.id,
       rollNo: student.roll_no,
@@ -487,18 +539,22 @@ export async function attachStudentToAppUser(
       targetTable: "students",
       targetId: studentId,
       beforeJson: { student, appUserId: input.appUserId },
-      afterJson: linked
+      afterJson: linkedResult.link
     });
 
-    return linked;
+    return linkedResult;
   });
 
+  if (result.previousStudentId !== null && result.previousStudentId !== studentId) {
+    await deleteDashboardCacheForStudent(result.previousStudentId);
+  }
+
   await rebuildDashboardCacheForStudent(studentId);
-  return linked;
+  return result.link;
 }
 
 export async function detachStudentFromAppUser(adminUserId: number, studentId: number) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.studentLink.findUnique({
       where: { studentId: BigInt(studentId) }
     });
@@ -531,8 +587,14 @@ export async function detachStudentFromAppUser(adminUserId: number, studentId: n
       afterJson: updated
     });
 
-    return updated;
+    return {
+      updated,
+      cacheStudentId: studentId
+    };
   });
+
+  await deleteDashboardCacheForStudent(result.cacheStudentId);
+  return result.updated;
 }
 
 export async function deleteStudentRecord(adminUserId: number, studentId: number) {

@@ -2,22 +2,31 @@
 
 import { useEffect } from "react";
 
+const SW_URL = "/sw.js";
+
 export function PwaRegister() {
   useEffect(() => {
-    async function removeCachingLayer() {
-      if ("serviceWorker" in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map((registration) => registration.unregister()));
-      }
-
-      if ("caches" in window) {
-        const keys = await window.caches.keys();
-        await Promise.all(keys.map((key) => window.caches.delete(key)));
-      }
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+      return;
     }
 
-    removeCachingLayer().catch(() => {
-      // The app should still work even if local cache cleanup fails.
+    async function syncServiceWorker() {
+      if (process.env.NODE_ENV === "development") {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+        return;
+      }
+
+      await navigator.serviceWorker.register(SW_URL, {
+        scope: "/",
+        updateViaCache: "none"
+      });
+    }
+
+    syncServiceWorker().catch((error) => {
+      if (process.env.NODE_ENV === "development") {
+        console.error("[pwa] register_failed", error);
+      }
     });
   }, []);
 

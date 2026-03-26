@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/logout-button";
 
@@ -8,7 +9,7 @@ export function MobileTopBar({
   label,
   className
 }: {
-  label: string;
+  label: ReactNode;
   className?: string;
 }) {
   const [visible, setVisible] = useState(true);
@@ -43,7 +44,9 @@ export function MobileTopBar({
         className
       )}
     >
-      <div className="font-display text-[1.7rem] leading-none tracking-[-0.06em] text-ink">{label}</div>
+      <div className="font-display text-[1.7rem] leading-none tracking-[-0.06em] text-ink flex items-center h-8">
+        {label}
+      </div>
       <LogoutButton className="glass-card inline-flex items-center gap-2 rounded-[1rem] border border-white/70 px-3 py-2 text-sm font-semibold text-ink shadow-soft disabled:opacity-60" />
     </div>
   );
