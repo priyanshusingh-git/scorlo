@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Host_Grotesk, Instrument_Serif } from "next/font/google";
-import { MobileAppSplash } from "@/components/mobile-app-splash";
 import { PwaRegister } from "@/components/pwa-register";
 import "./globals.css";
 
@@ -52,7 +51,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${hostGrotesk.variable} ${instrumentSerif.variable}`}>
         <PwaRegister />
-        <MobileAppSplash />
         {children}
       </body>
     </html>
