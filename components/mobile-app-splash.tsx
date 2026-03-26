@@ -13,7 +13,11 @@ export function MobileAppSplash() {
     if (typeof window === "undefined") return;
 
     const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
-    if (isDesktop) {
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+    if (isDesktop || isStandalone) {
       setPhase("hidden");
       return;
     }
@@ -80,16 +84,14 @@ export function MobileAppSplash() {
       />
 
       <div className="relative z-10 flex w-full max-w-[22rem] flex-col items-center px-6">
-        <div className="rounded-[2rem] border border-white/70 bg-white/24 p-4 shadow-[0_28px_70px_-40px_rgba(16,32,49,0.36)] backdrop-blur-md">
-          <Image
-            src="/brand/scorlo-premium-mark-transparent.png"
-            alt="Scorlo"
-            width={1083}
-            height={888}
-            priority
-            className="h-auto w-full max-w-[14rem] object-contain drop-shadow-[0_18px_28px_rgba(28,63,151,0.08)]"
-          />
-        </div>
+        <Image
+          src="/brand/scorlo-premium-mark-transparent.png"
+          alt="Scorlo"
+          width={1083}
+          height={888}
+          priority
+          className="h-auto w-full max-w-[14rem] object-contain drop-shadow-[0_18px_28px_rgba(28,63,151,0.08)]"
+        />
         <div className="mt-8 flex items-center gap-2">
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#d89a27] [animation-delay:-0.24s]" />
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#1c3f97] [animation-delay:-0.12s]" />
