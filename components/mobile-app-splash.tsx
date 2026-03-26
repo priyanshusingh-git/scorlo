@@ -90,7 +90,7 @@ export function MobileAppSplash() {
           width={1083}
           height={888}
           priority
-          className="h-auto w-full max-w-[14rem] object-contain drop-shadow-[0_18px_28px_rgba(28,63,151,0.08)]"
+          className="h-auto w-full max-w-[14rem] object-contain mix-blend-multiply"
         />
         <div className="mt-8 flex items-center gap-2">
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#d89a27] [animation-delay:-0.24s]" />
