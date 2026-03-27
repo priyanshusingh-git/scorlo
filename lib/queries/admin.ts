@@ -1,5 +1,6 @@
 import "server-only";
 
+import { MAIN_ADMIN_EMAIL, MAIN_ADMIN_NAME } from "@/lib/admin/constants";
 import { getSql } from "@/lib/db";
 
 export type AdminOverview = {
@@ -35,9 +36,7 @@ export type AdminAccountRow = {
   display_name: string | null;
   email_verified: boolean;
   role: "admin";
-  created_at: string;
-  updated_at: string;
-  last_login_at: string | null;
+  is_main_admin: boolean;
 };
 
 export type AdminUserRow = {
@@ -56,6 +55,7 @@ export type AdminUserRow = {
   student_id: number | null;
   student_name: string | null;
   latest_request_id: number | null;
+  latest_request_roll_no: string | null;
   latest_request_status: string | null;
   latest_request_notes: string | null;
   latest_request_dob: string | null;
@@ -235,6 +235,7 @@ export async function searchAdminUsers({
       sl.student_id,
       st.name AS student_name,
       dr.id AS latest_request_id,
+      dr.roll_no AS latest_request_roll_no,
       dr.status AS latest_request_status,
       dr.notes AS latest_request_notes,
       dr.dob AS latest_request_dob
@@ -242,7 +243,7 @@ export async function searchAdminUsers({
     LEFT JOIN student_links sl ON sl.app_user_id = au.id
     LEFT JOIN students st ON st.id = sl.student_id
     LEFT JOIN LATERAL (
-      SELECT id, status, notes, dob
+      SELECT id, roll_no, status, notes, dob
       FROM data_requests
       WHERE app_user_id = au.id
       ORDER BY updated_at DESC, id DESC
@@ -269,20 +270,26 @@ export async function searchAdminAccounts({ query }: { query?: string }) {
     SELECT
       au.id,
       au.email,
-      au.display_name,
+      CASE
+        WHEN au.email = ${MAIN_ADMIN_EMAIL} THEN ${MAIN_ADMIN_NAME}
+        ELSE au.display_name
+      END AS display_name,
       au.email_verified,
       au.role,
-      au.created_at::text,
-      au.updated_at::text,
-      au.last_login_at::text
+      (au.email = ${MAIN_ADMIN_EMAIL}) AS is_main_admin
     FROM app_users au
     WHERE au.role = 'admin'
       AND (
         ${!pattern.enabled}
         OR au.email ILIKE ${pattern.value}
-        OR COALESCE(au.display_name, '') ILIKE ${pattern.value}
+        OR (
+          CASE
+            WHEN au.email = ${MAIN_ADMIN_EMAIL} THEN ${MAIN_ADMIN_NAME}
+            ELSE COALESCE(au.display_name, '')
+          END
+        ) ILIKE ${pattern.value}
       )
-    ORDER BY au.updated_at DESC, au.id DESC
+    ORDER BY (au.email = ${MAIN_ADMIN_EMAIL}) DESC, au.updated_at DESC, au.id DESC
     LIMIT 50
   `) as AdminAccountRow[];
 }

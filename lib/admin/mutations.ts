@@ -3,7 +3,9 @@ import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Prisma, PrismaClient } from "@prisma/client";
+import { MAIN_ADMIN_EMAIL, MAIN_ADMIN_NAME, isMainAdminEmail } from "@/lib/admin/constants";
 import { getSql } from "@/lib/db";
+import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { prisma } from "@/lib/prisma";
 import {
   clearAllDashboardCaches,
@@ -55,6 +57,22 @@ async function logAdminAudit(
 
 async function getAdminCount(tx: Prisma.TransactionClient | PrismaClient) {
   return tx.appUser.count({ where: { role: "admin" } });
+}
+
+async function getActingAdmin(tx: Prisma.TransactionClient | PrismaClient, adminUserId: number) {
+  const admin = await tx.appUser.findUnique({
+    where: { id: BigInt(adminUserId) }
+  });
+
+  if (!admin || admin.role !== "admin") {
+    throw new Error("Admin account not found.");
+  }
+
+  return admin;
+}
+
+function canManageAdminAccounts(admin: { email: string }) {
+  return isMainAdminEmail(admin.email);
 }
 
 async function ensurePendingRequest(
@@ -112,12 +130,14 @@ async function assignStudentToUser(
     appUserId,
     studentId,
     rollNo,
-    dob
+    dob,
+    preserveDataRequestId
   }: {
     appUserId: bigint;
     studentId: bigint;
     rollNo: string;
     dob: string;
+    preserveDataRequestId?: bigint | null;
   }
 ) {
   const conflictingStudentLink = await tx.studentLink.findUnique({
@@ -171,7 +191,8 @@ async function assignStudentToUser(
   await tx.dataRequest.deleteMany({
     where: {
       appUserId,
-      rollNo
+      rollNo,
+      ...(preserveDataRequestId ? { id: { not: preserveDataRequestId } } : {})
     }
   });
 
@@ -221,8 +242,88 @@ export async function updateUserRole(
   });
 }
 
+export async function createAdminAccount(
+  adminUserId: number,
+  input: {
+    name: string;
+    email: string;
+    password: string;
+  }
+) {
+  const actingAdmin = await prisma.appUser.findUnique({
+    where: { id: BigInt(adminUserId) }
+  });
+
+  if (!actingAdmin || actingAdmin.role !== "admin") {
+    throw new Error("Admin account not found.");
+  }
+
+  if (!canManageAdminAccounts(actingAdmin)) {
+    throw new Error("Only the main admin can create admin accounts.");
+  }
+
+  const name = input.name.trim();
+  const email = input.email.trim().toLowerCase();
+
+  if (!name) {
+    throw new Error("Admin name is required.");
+  }
+
+  if (!email.endsWith("@scorlo.in")) {
+    throw new Error("Admin accounts must use a @scorlo.in email.");
+  }
+
+  const existingAppUser = await prisma.appUser.findUnique({
+    where: { email }
+  });
+
+  if (existingAppUser) {
+    throw new Error("An app account with this email already exists.");
+  }
+
+  const auth = getFirebaseAdminAuth();
+  const firebaseUser = await auth.createUser({
+    email,
+    password: input.password,
+    displayName: name,
+    emailVerified: true,
+    disabled: false
+  });
+
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      const adminUser = await tx.appUser.create({
+        data: {
+          firebaseUid: firebaseUser.uid,
+          email,
+          emailVerified: true,
+          displayName: name,
+          role: "admin"
+        }
+      });
+
+      await logAdminAudit(tx, {
+        adminUserId,
+        actionKey: "admins.create",
+        targetTable: "app_users",
+        targetId: adminUser.id.toString(),
+        beforeJson: null,
+        afterJson: adminUser
+      });
+
+      return adminUser;
+    });
+
+    return created;
+  } catch (error) {
+    await auth.deleteUser(firebaseUser.uid).catch(() => undefined);
+    throw error;
+  }
+}
+
 export async function deleteUserAccount(adminUserId: number, targetUserId: number) {
   const result = await prisma.$transaction(async (tx) => {
+    const actingAdmin = await getActingAdmin(tx, adminUserId);
     const targetUser = await tx.appUser.findUnique({
       where: { id: BigInt(targetUserId) },
       include: {
@@ -235,11 +336,18 @@ export async function deleteUserAccount(adminUserId: number, targetUserId: numbe
       throw new Error("User not found.");
     }
 
+    if (isMainAdminEmail(targetUser.email)) {
+      throw new Error("The main admin account cannot be deleted.");
+    }
+
     if (targetUser.id === BigInt(adminUserId)) {
       throw new Error("You cannot delete your own admin account.");
     }
 
     if (targetUser.role === "admin") {
+      if (!canManageAdminAccounts(actingAdmin)) {
+        throw new Error("Only the main admin can manage admin accounts.");
+      }
       const adminCount = await getAdminCount(tx);
       if (adminCount <= 1) {
         throw new Error("At least one admin account must remain.");
@@ -434,7 +542,8 @@ export async function updateDataRequestRecord(
         appUserId: existing.appUserId,
         studentId: student.id,
         rollNo: input.rollNo,
-        dob: input.dob
+        dob: input.dob,
+        preserveDataRequestId: existing.id
       });
       staleCacheStudentId = linkedResult.previousStudentId;
 

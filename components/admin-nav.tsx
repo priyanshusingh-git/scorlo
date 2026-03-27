@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getAdminNavItems } from "@/lib/admin-nav-items";
 import { cn } from "@/lib/utils";
-import { adminNavItems } from "@/lib/admin-nav-items";
 
-export function AdminDesktopNav() {
+export function AdminDesktopNav({ isMainAdmin }: { isMainAdmin: boolean }) {
   const pathname = usePathname();
+  const items = getAdminNavItems(isMainAdmin);
 
   return (
     <nav className="hidden lg:flex lg:flex-col lg:gap-2">
-      {adminNavItems.map(({ href, label, icon: Icon }) => {
+      {items.map(({ href, label, icon: Icon }) => {
         const active = pathname === href;
 
         return (

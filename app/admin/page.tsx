@@ -4,11 +4,11 @@ import { AdminShell } from "@/components/admin-shell";
 import { AdminSectionFallback, AdminStatsFallback } from "@/components/admin-stream-fallback";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
-import { requireAdminSession } from "@/lib/auth/admin";
+import { isMainAdminUser, requireAdminSession } from "@/lib/auth/admin";
 import { getAdminOverview } from "@/lib/queries/admin";
 
 export default async function AdminOverviewPage() {
-  await requireAdminSession();
+  const admin = await requireAdminSession();
   const overviewPromise = getAdminOverview();
 
   return (
@@ -18,7 +18,7 @@ export default async function AdminOverviewPage() {
       </Suspense>
 
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(260px,0.72fr)_minmax(0,1.28fr)]">
-        <QuickActionsSection />
+        <QuickActionsSection isMainAdmin={isMainAdminUser(admin)} />
         <Suspense
           fallback={
             <AdminSectionFallback
@@ -67,17 +67,20 @@ async function OverviewStats({
   );
 }
 
-function QuickActionsSection() {
+function QuickActionsSection({ isMainAdmin }: { isMainAdmin: boolean }) {
   return (
     <SectionBlock
       title="Quick actions"
     >
       <div className="space-y-3">
-        <QuickLink href="/admin/admins" label="Manage admins" description="View admin-only accounts. Admin profiles are separate from student users." />
-        <QuickLink href="/admin/users" label="Manage users" description="Review student accounts, linked state, and account cleanup actions." />
-        <QuickLink href="/admin/links" label="Moderate links" description="Review, approve, reject, or update student link records." />
+        {isMainAdmin ? (
+          <QuickLink href="/admin/admins" label="Manage admins" description="Create and manage admin-only accounts." />
+        ) : null}
+        <QuickLink href="/admin/users" label="Updated users" description="Review student accounts, link state, requests, and cleanup actions." />
         <QuickLink href="/admin/students" label="Explore students" description="Inspect live academic records and reassign links manually." />
-        <QuickLink href="/admin/maintenance" label="Maintenance" description="Handle rebuilds, cleanup actions, and recent operations." />
+        {isMainAdmin ? (
+          <QuickLink href="/admin/maintenance" label="Maintenance" description="Handle rebuilds, cleanup actions, and recent operations." />
+        ) : null}
       </div>
     </SectionBlock>
   );

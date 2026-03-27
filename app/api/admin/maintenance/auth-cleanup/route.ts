@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
-import { requireAdminSession } from "@/lib/auth/admin";
+import { requireMainAdminSession } from "@/lib/auth/admin";
 
 export async function POST() {
   try {
     // 1. Ensure the user is an admin before allowing cleanup
-    await requireAdminSession();
+    await requireMainAdminSession();
     
     const auth = getFirebaseAdminAuth();
     const now = Date.now();

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentAdminSessionUser } from "@/lib/auth/admin";
+import { getCurrentAdminSessionUser, isMainAdminUser } from "@/lib/auth/admin";
 import { clearStudentDashboardCaches } from "@/lib/admin/mutations";
 
 export async function POST() {
@@ -8,6 +8,12 @@ export async function POST() {
     return NextResponse.json(
       { error: "unauthorized", message: "Admin session required." },
       { status: 401 }
+    );
+  }
+  if (!isMainAdminUser(admin)) {
+    return NextResponse.json(
+      { error: "forbidden", message: "Only the main admin can access maintenance." },
+      { status: 403 }
     );
   }
 

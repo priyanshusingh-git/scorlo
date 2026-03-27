@@ -1,8 +1,10 @@
 "use client";
 
 import { BottomNav } from "@/components/bottom-nav";
-import { adminNavItems } from "@/lib/admin-nav-items";
+import { getAdminNavItems } from "@/lib/admin-nav-items";
 
-export function AdminBottomNav() {
-  return <BottomNav items={adminNavItems} />;
+export function AdminBottomNav({ isMainAdmin }: { isMainAdmin: boolean }) {
+  const items = getAdminNavItems(isMainAdmin);
+
+  return <BottomNav items={items} />;
 }

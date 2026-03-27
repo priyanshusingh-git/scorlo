@@ -143,6 +143,59 @@ export function AdminDangerButton({
   );
 }
 
+export function AdminCreateAdminForm() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const { pending, message, run } = useAdminRequest();
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          placeholder="Admin name"
+          disabled={pending}
+        />
+        <input
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          placeholder="admin@scorlo.in"
+          disabled={pending}
+        />
+        <input
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          placeholder="Temporary password"
+          disabled={pending}
+        />
+      </div>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          run({
+            url: "/api/admin/admins",
+            method: "POST",
+            body: { name, email, password },
+            successMessage: "Admin account created."
+          })
+        }
+        className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+      >
+        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+        <span>{pending ? "Creating..." : "Create admin"}</span>
+      </button>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}
+
 export function AdminLinkForm({
   linkId,
   initialRollNo,

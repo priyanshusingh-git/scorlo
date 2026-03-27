@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { AdminDangerButton } from "@/components/admin-actions";
+import { AdminDangerButton, AdminDataRequestForm, AdminLinkForm } from "@/components/admin-actions";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminSectionFallback } from "@/components/admin-stream-fallback";
 import { SectionBlock } from "@/components/section-block";
@@ -18,36 +18,28 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   const usersPromise = searchAdminUsers({ query, role: "student" });
 
   return (
-    <AdminShell eyebrow="Student user management" title="Student Users">
+    <AdminShell eyebrow="Student accounts" title="Updated Users">
       <SectionBlock title="Search">
         <form className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <input
             type="text"
             name="q"
             defaultValue={query}
-            placeholder="Search by email, display name, roll number, or student name"
+            placeholder="Search by email, roll number, or student name"
             className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
           <button className="rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white">Apply</button>
         </form>
       </SectionBlock>
 
-      <Suspense
-        fallback={
-          <AdminSectionFallback
-            title="Student users"
-            description=""
-            rows={4}
-          />
-        }
-      >
-        <StudentUsersList usersPromise={usersPromise} />
+      <Suspense fallback={<AdminSectionFallback title="Updated users" description="" rows={4} />}>
+        <UpdatedUsersList usersPromise={usersPromise} />
       </Suspense>
     </AdminShell>
   );
 }
 
-async function StudentUsersList({
+async function UpdatedUsersList({
   usersPromise
 }: {
   usersPromise: ReturnType<typeof searchAdminUsers>;
@@ -59,55 +51,60 @@ async function StudentUsersList({
       {users.map((user) => (
         <SectionBlock
           key={user.id}
-          title={user.email}
-          description={`User #${user.id} • ${user.display_name ?? "No display name"}`}
+          title={user.student_name ?? user.display_name ?? user.email}
         >
           <div className="mb-4 flex flex-wrap gap-2">
-            <StatusBadge tone="info">student</StatusBadge>
             <StatusBadge tone={user.email_verified ? "success" : "danger"}>
-              {user.email_verified ? "Email verified" : "Unverified"}
+              {user.email_verified ? "Verified" : "Unverified"}
             </StatusBadge>
-            <StatusBadge tone={user.link_status === "linked" ? "success" : "warning"}>
+            <StatusBadge tone={user.link_status === "linked" ? "success" : user.link_status === "rejected" ? "danger" : "warning"}>
               {user.link_status ?? "No link"}
             </StatusBadge>
+            {user.link_roll_no ? <StatusBadge tone="info">{user.link_roll_no}</StatusBadge> : null}
           </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.9fr)]">
-            <div className="space-y-3 text-sm text-slate">
-              <InfoLine label="Created" value={user.created_at} />
-              <InfoLine label="Updated" value={user.updated_at} />
-              <InfoLine label="Last login" value={user.last_login_at ?? "Never"} />
-              <InfoLine label="Linked roll" value={user.link_roll_no ?? "Not linked"} />
-              <InfoLine label="Stored DOB" value={user.link_dob ?? user.latest_request_dob ?? "Not stored"} />
-              <InfoLine label="Student" value={user.student_name ?? "Not linked"} />
-              <InfoLine label="Latest request" value={user.latest_request_status ?? "No request"} />
-              {user.latest_request_notes ? <InfoLine label="Request notes" value={user.latest_request_notes} /> : null}
+
+          <div className="space-y-4">
+            <div className="rounded-[1rem] bg-app/70 px-4 py-3 text-sm text-slate">
+              <div className="font-medium text-ink">{user.email}</div>
+              <div className="mt-1">
+                {user.student_name ?? "No linked student"}
+              </div>
             </div>
-            <div className="space-y-4">
-              <AdminDangerButton
-                label="Delete user"
-                url={`/api/admin/users/${user.id}`}
-                confirmMessage={`Delete user ${user.email}? This will cascade linked app-owned rows.`}
-                successMessage="User deleted."
+
+            {user.student_link_id ? (
+              <AdminLinkForm
+                linkId={user.student_link_id}
+                initialRollNo={user.link_roll_no ?? ""}
+                initialDob={user.link_dob ?? ""}
+                initialStatus={user.link_status ?? "pending_data"}
               />
-            </div>
+            ) : null}
+
+            {user.latest_request_id ? (
+              <AdminDataRequestForm
+                requestId={user.latest_request_id}
+                initialRollNo={user.latest_request_roll_no ?? user.link_roll_no ?? ""}
+                initialDob={user.latest_request_dob ?? user.link_dob ?? ""}
+                initialStatus={user.latest_request_status ?? "pending"}
+                initialNotes={user.latest_request_notes}
+              />
+            ) : null}
+
+            <AdminDangerButton
+              label="Delete user"
+              url={`/api/admin/users/${user.id}`}
+              confirmMessage={`Delete user ${user.email}? This will cascade linked app-owned rows.`}
+              successMessage="User deleted."
+            />
           </div>
         </SectionBlock>
       ))}
 
       {users.length === 0 ? (
         <SectionBlock title="No users found">
-          <p className="text-sm text-slate">No matching app users were found.</p>
+          <p className="text-sm text-slate">No matching student accounts were found.</p>
         </SectionBlock>
       ) : null}
-    </div>
-  );
-}
-
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[1rem] bg-app/70 px-4 py-3">
-      <div className="text-[11px] uppercase tracking-[0.16em] text-mist">{label}</div>
-      <div className="mt-1 text-sm font-medium text-ink">{value}</div>
     </div>
   );
 }

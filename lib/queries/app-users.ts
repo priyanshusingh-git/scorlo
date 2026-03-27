@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { DecodedIdToken } from "firebase-admin/auth";
+import { MAIN_ADMIN_NAME, isMainAdminEmail } from "@/lib/admin/constants";
 import { prisma } from "@/lib/prisma";
 
 export type AppUser = {
@@ -41,8 +42,10 @@ function toAppUser(user: {
 
 export async function ensureAppUserForSession(decoded: DecodedIdToken) {
   const email = decoded.email ?? "";
+  const isMainAdmin = isMainAdminEmail(email);
   const displayName =
     typeof decoded.name === "string" && decoded.name.trim().length > 0 ? decoded.name : null;
+  const normalizedDisplayName = displayName ?? (isMainAdmin ? MAIN_ADMIN_NAME : null);
   const now = new Date();
 
   // Try to find the user first to avoid unnecessary writes
@@ -53,11 +56,11 @@ export async function ensureAppUserForSession(decoded: DecodedIdToken) {
   if (existingUser) {
     const lastLogin = existingUser.lastLoginAt;
     // Only update login timestamp if it's been more than 1 hour or critical data changed
-    const needsUpdate =
+      const needsUpdate =
       !lastLogin ||
       now.getTime() - lastLogin.getTime() > 1000 * 60 * 60 ||
       existingUser.email !== email ||
-      existingUser.displayName !== displayName ||
+      existingUser.displayName !== normalizedDisplayName ||
       existingUser.emailVerified !== Boolean(decoded.email_verified);
 
     if (needsUpdate) {
@@ -66,7 +69,7 @@ export async function ensureAppUserForSession(decoded: DecodedIdToken) {
         data: {
           email,
           emailVerified: Boolean(decoded.email_verified),
-          displayName: displayName ?? existingUser.displayName,
+          displayName: normalizedDisplayName ?? existingUser.displayName,
           lastLoginAt: now,
           updatedAt: now
         }
@@ -83,8 +86,8 @@ export async function ensureAppUserForSession(decoded: DecodedIdToken) {
       firebaseUid: decoded.uid,
       email,
       emailVerified: Boolean(decoded.email_verified),
-      displayName,
-      role: "student",
+      displayName: normalizedDisplayName,
+      role: isMainAdmin ? "admin" : "student",
       lastLoginAt: now
     }
   });

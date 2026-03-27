@@ -9,11 +9,11 @@ import { AdminShell } from "@/components/admin-shell";
 import { AdminSectionFallback } from "@/components/admin-stream-fallback";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
-import { requireAdminSession } from "@/lib/auth/admin";
+import { requireMainAdminSession } from "@/lib/auth/admin";
 import { getAdminMaintenanceInfo } from "@/lib/queries/admin";
 
 export default async function AdminMaintenancePage() {
-  await requireAdminSession();
+  await requireMainAdminSession();
   const infoPromise = getAdminMaintenanceInfo();
 
   return (

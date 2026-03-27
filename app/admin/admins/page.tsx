@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import { AdminDangerButton } from "@/components/admin-actions";
+import { AdminCreateAdminForm, AdminDangerButton } from "@/components/admin-actions";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminSectionFallback } from "@/components/admin-stream-fallback";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
-import { requireAdminSession } from "@/lib/auth/admin";
+import { requireMainAdminSession } from "@/lib/auth/admin";
 import { searchAdminAccounts } from "@/lib/queries/admin";
 
 type PageProps = {
@@ -12,20 +12,24 @@ type PageProps = {
 };
 
 export default async function AdminAccountsPage({ searchParams }: PageProps) {
-  const admin = await requireAdminSession();
+  const admin = await requireMainAdminSession();
   const params = await searchParams;
   const query = typeof params.q === "string" ? params.q : "";
   const adminsPromise = searchAdminAccounts({ query });
 
   return (
     <AdminShell eyebrow="Admin accounts" title="Manage Admins">
+      <SectionBlock title="Create admin">
+        <AdminCreateAdminForm />
+      </SectionBlock>
+
       <SectionBlock title="Admin profiles">
         <form className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <input
             type="text"
             name="q"
             defaultValue={query}
-            placeholder="Search by admin email or display name"
+            placeholder="Search by name or email"
             className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
           <button className="rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white">Search</button>
@@ -61,31 +65,25 @@ async function AdminAccountsList({
       {admins.map((account) => (
         <SectionBlock
           key={account.id}
-          title={account.email}
-          description={`Admin #${account.id} • ${account.display_name ?? "No display name"}`}
+          title={account.display_name ?? "Admin"}
         >
           <div className="mb-4 flex flex-wrap gap-2">
-            <StatusBadge tone="warning">admin</StatusBadge>
+            <StatusBadge tone="warning">{account.is_main_admin ? "Main admin" : "Admin"}</StatusBadge>
             <StatusBadge tone={account.email_verified ? "success" : "danger"}>
               {account.email_verified ? "Email verified" : "Unverified"}
             </StatusBadge>
             {account.id === currentAdminId ? <StatusBadge tone="info">Current session</StatusBadge> : null}
           </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(240px,0.8fr)]">
-            <div className="space-y-3 text-sm text-slate">
-              <InfoLine label="Created" value={account.created_at} />
-              <InfoLine label="Updated" value={account.updated_at} />
-              <InfoLine label="Last login" value={account.last_login_at ?? "Never"} />
-              <InfoLine label="Profile type" value="Admin-only account" />
-            </div>
-            <div className="space-y-4">
+          <div className="space-y-4">
+            <div className="text-sm text-slate">{account.email}</div>
+            {!account.is_main_admin ? (
               <AdminDangerButton
                 label="Delete admin account"
                 url={`/api/admin/users/${account.id}`}
-                confirmMessage={`Delete admin account ${account.email}? The last remaining admin and your current session are protected.`}
+                confirmMessage={`Delete admin account ${account.display_name ?? account.email}?`}
                 successMessage="Admin account deleted."
               />
-            </div>
+            ) : null}
           </div>
         </SectionBlock>
       ))}
@@ -95,15 +93,6 @@ async function AdminAccountsList({
           <p className="text-sm text-slate">No admin accounts matched the search.</p>
         </SectionBlock>
       ) : null}
-    </div>
-  );
-}
-
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[1rem] bg-app/70 px-4 py-3">
-      <div className="text-[11px] uppercase tracking-[0.16em] text-mist">{label}</div>
-      <div className="mt-1 text-sm font-medium text-ink">{value}</div>
     </div>
   );
 }

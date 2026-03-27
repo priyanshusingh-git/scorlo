@@ -3,14 +3,19 @@ import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { LogoutButton } from "@/components/logout-button";
 import { MobileTopBar } from "@/components/mobile-top-bar";
+import { isMainAdminUser } from "@/lib/auth/admin";
+import { getCurrentSessionUser } from "@/lib/auth/session";
 
-export function AdminShell({
+export async function AdminShell({
   children
 }: {
   children: React.ReactNode;
   title: string;
   eyebrow: string;
 }) {
+  const admin = await getCurrentSessionUser();
+  const isMainAdmin = admin?.role === "admin" && isMainAdminUser(admin);
+
   return (
     <div className="page-shell min-h-screen w-full px-4 pb-28 pt-20 sm:px-6 sm:pt-20 lg:px-8 lg:pb-10 lg:pt-8 2xl:px-10">
       <MobileTopBar
@@ -30,12 +35,9 @@ export function AdminShell({
               <span className="font-display text-[2.15rem] leading-none tracking-[-0.08em] text-white">
                 Scorlo
               </span>
-              <div className="mt-1 text-[11px] font-bold uppercase tracking-[0.2em] text-accent">
-                Admin Station
-              </div>
             </div>
             <div className="mt-8 flex-1">
-              <AdminDesktopNav />
+              <AdminDesktopNav isMainAdmin={isMainAdmin} />
             </div>
             <LogoutButton className="mt-5 inline-flex items-center gap-2 rounded-[1rem] border border-white/10 bg-white/8 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/12 disabled:opacity-60" />
           </div>
@@ -46,7 +48,7 @@ export function AdminShell({
         </div>
       </div>
       <InstallAppPrompt />
-      <AdminBottomNav />
+      <AdminBottomNav isMainAdmin={isMainAdmin} />
     </div>
   );
 }

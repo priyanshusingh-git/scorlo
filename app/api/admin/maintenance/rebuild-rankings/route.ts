@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import { getCurrentAdminSessionUser } from "@/lib/auth/admin";
+import { getCurrentAdminSessionUser, isMainAdminUser } from "@/lib/auth/admin";
 import { rebuildStudentRankings } from "@/lib/admin/mutations";
 
 export async function POST() {
   const admin = await getCurrentAdminSessionUser();
   if (!admin) {
     return NextResponse.json({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+  }
+  if (!isMainAdminUser(admin)) {
+    return NextResponse.json({ error: "forbidden", message: "Only the main admin can access maintenance." }, { status: 403 });
   }
 
   try {
