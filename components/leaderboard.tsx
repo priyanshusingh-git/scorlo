@@ -29,8 +29,7 @@ function RankCard({
   percentileLabel: string;
 }) {
   return (
-    <div className="surface-panel relative overflow-hidden rounded-[1.6rem] border border-white/70 px-4 py-5 shadow-[0_22px_55px_-38px_rgba(16,32,49,0.42)]">
-      <div className="absolute -right-8 top-0 h-24 w-24 rounded-full bg-accent/10 blur-3xl" />
+    <div className="surface-2 relative overflow-hidden rounded-[1.6rem] border border-line px-4 py-5 shadow-[0_22px_55px_-38px_rgba(16,32,49,0.42)]">
       <div className="relative text-[11px] uppercase tracking-[0.18em] text-mist">{label}</div>
       <div className="mt-3 flex items-end justify-between gap-4">
         <div>
@@ -60,7 +59,7 @@ function SemesterRankRow({
   percentileLabel: string;
 }) {
   return (
-    <div className="surface-panel relative flex items-center justify-between gap-4 rounded-[1.35rem] border border-white/70 px-5 py-4 shadow-soft">
+    <div className="surface-2 relative flex items-center justify-between gap-4 rounded-[1.35rem] border border-line px-5 py-4 shadow-soft">
       <div className="flex items-center gap-4">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/5 text-lg font-bold text-accent">
           {rank ? `#${rank}` : "--"}
@@ -133,7 +132,7 @@ export function LeaderboardTabs({
           className="space-y-5"
         >
           <Tabs.List
-            className={`glass-card shadow-soft grid grid-cols-2 gap-2 rounded-[1.5rem] border border-white/70 p-1 transition xl:max-w-md ${
+            className={`surface-3 shadow-soft grid grid-cols-2 gap-2 rounded-[1.5rem] border border-line p-1 transition xl:max-w-md ${
               isPending ? "opacity-80" : ""
             }`}
           >

@@ -8,7 +8,7 @@ import { useStudentShell } from "@/components/student-shell-provider";
 
 function ProfileField({ label, value }: { label: string; value: string | null | undefined }) {
   return (
-    <div className="glass-card rounded-[1.35rem] border border-white/70 px-4 py-4">
+    <div className="surface-2 rounded-[1.35rem] border border-line px-4 py-4">
       <div className="text-[11px] uppercase tracking-[0.16em] text-mist">{label}</div>
       <div className="mt-1.5 text-sm font-semibold text-ink">{value ?? "Not available"}</div>
     </div>

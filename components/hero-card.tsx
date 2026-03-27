@@ -14,10 +14,7 @@ export function HeroCard({
   institute?: string | null;
 }) {
   return (
-    <section className="relative overflow-hidden rounded-[1.75rem] border border-white/60 bg-elevated px-6 py-8 shadow-scorlo sm:px-8 sm:py-10">
-      <div className="absolute -right-24 -top-24 h-[320px] w-[320px] rounded-full bg-accent/5 blur-[100px]" />
-      <div className="absolute -left-24 -bottom-24 h-[320px] w-[320px] rounded-full bg-accent/5 blur-[100px]" />
-      
+    <section className="surface-1 relative overflow-hidden rounded-[1.75rem] border border-line px-6 py-8 shadow-scorlo sm:px-8 sm:py-10">
       <div className="relative z-10 flex flex-col gap-2">
         <div className="text-sm font-medium uppercase tracking-[0.14em] text-mist">
           Welcome

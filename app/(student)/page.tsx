@@ -32,15 +32,15 @@ export default function HomePage() {
 
           <SectionBlock title="Next steps">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="glass-card rounded-[1.35rem] border border-white/70 px-4 py-5">
+              <div className="surface-2 rounded-[1.35rem] border border-line px-4 py-5">
                 <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Step 1</div>
                 <div className="mt-2 text-lg font-semibold text-ink">Enter roll number</div>
               </div>
-              <div className="glass-card rounded-[1.35rem] border border-white/70 px-4 py-5">
+              <div className="surface-2 rounded-[1.35rem] border border-line px-4 py-5">
                 <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Step 2</div>
                 <div className="mt-2 text-lg font-semibold text-ink">Confirm date of birth</div>
               </div>
-              <div className="glass-card rounded-[1.35rem] border border-white/70 px-4 py-5">
+              <div className="surface-2 rounded-[1.35rem] border border-line px-4 py-5">
                 <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Step 3</div>
                 <div className="mt-2 text-lg font-semibold text-ink">Unlock dashboard</div>
               </div>
@@ -92,13 +92,13 @@ export default function HomePage() {
                 </StatusBadge>
               </div>
               <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="glass-card rounded-[1.35rem] border border-white/70 px-4 py-4">
+                <div className="surface-2 rounded-[1.35rem] border border-line px-4 py-4">
                   <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Best semester</div>
                   <div className="mt-2 text-lg font-semibold text-ink">
                     {homeView?.standing.best_semester_label ?? "Not available"}
                   </div>
                 </div>
-                <div className="glass-card rounded-[1.35rem] border border-white/70 px-4 py-4">
+                <div className="surface-2 rounded-[1.35rem] border border-line px-4 py-4">
                   <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Latest status</div>
                   <div className="mt-2 text-lg font-semibold text-ink">
                     {homeView?.standing.latest_status_label ?? "Unknown"}

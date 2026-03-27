@@ -3,8 +3,7 @@ import { cn } from "@/lib/utils";
 
 export function MetricTile({ metric }: { metric: DashboardMetricTile }) {
   return (
-    <div className="surface-panel relative min-h-40 overflow-hidden rounded-[1.6rem] border border-white/75 p-4 shadow-[0_24px_60px_-38px_rgba(16,32,49,0.45)]">
-      <div className="absolute -right-6 top-6 h-20 w-20 rounded-full bg-white/40 blur-2xl" />
+    <div className="surface-2 relative min-h-40 overflow-hidden rounded-[1.6rem] border border-line p-4 shadow-[0_24px_60px_-38px_rgba(16,32,49,0.45)]">
       <div className="relative mb-8 flex items-start justify-between gap-3">
         <div className="text-xs font-medium uppercase tracking-[0.2em] text-mist">{metric.label}</div>
       </div>

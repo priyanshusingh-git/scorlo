@@ -18,7 +18,7 @@ export function SemesterCards({
           <Accordion.Item
             key={semester.id}
             value={`semester-${semester.semester_no}`}
-            className="surface-panel overflow-hidden rounded-[1.75rem] border border-white/70 shadow-[0_22px_55px_-38px_rgba(16,32,49,0.42)]"
+            className="surface-1 overflow-hidden rounded-[1.75rem] border border-line shadow-[0_22px_55px_-38px_rgba(16,32,49,0.42)]"
           >
           <Accordion.Header>
             <Accordion.Trigger className="group flex w-full flex-col gap-4 px-5 py-5 text-left md:flex-row md:items-center md:justify-between">
@@ -49,7 +49,7 @@ export function SemesterCards({
                   return (
                     <div
                       key={subject.id}
-                      className="glass-card rounded-[1.3rem] border border-white/70 px-4 py-4"
+                      className="surface-2 rounded-[1.3rem] border border-line px-4 py-4"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">

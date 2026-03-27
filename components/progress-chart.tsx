@@ -3,7 +3,7 @@ import type { DashboardProgressChart } from "@/lib/queries/dashboard";
 export function ProgressChart({ chart }: { chart: DashboardProgressChart }) {
   if (chart.points.length === 0) {
     return (
-      <div className="soft-grid rounded-[1.7rem] border border-white/70 bg-app/60 p-5">
+      <div className="soft-grid surface-2 rounded-[1.7rem] border border-line p-5">
         <p className="text-sm leading-7 text-slate">
           Your SGPA trend will appear here once semester results are available.
         </p>
@@ -12,8 +12,7 @@ export function ProgressChart({ chart }: { chart: DashboardProgressChart }) {
   }
 
   return (
-    <div className="soft-grid relative overflow-hidden rounded-[1.7rem] border border-white/70 bg-app/60 p-5">
-      <div className="absolute right-0 top-0 h-28 w-28 rounded-full bg-accent/10 blur-3xl" />
+    <div className="soft-grid surface-2 relative overflow-hidden rounded-[1.7rem] border border-line p-5">
       <div className="relative mb-5 flex items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-mist">Progress arc</p>
