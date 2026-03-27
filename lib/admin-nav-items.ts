@@ -1,6 +1,6 @@
-import { Gauge, Settings2, ShieldUser, UsersRound, UserCog } from "lucide-react";
+import { Gauge, Settings2, ShieldUser, UserCog, UserRound, UsersRound } from "lucide-react";
 
-export const adminNavItems = [
+export const mainAdminNavItems = [
   { href: "/admin", label: "Overview", icon: Gauge },
   { href: "/admin/admins", label: "Admins", icon: UserCog },
   { href: "/admin/users", label: "Users", icon: UsersRound },
@@ -8,14 +8,13 @@ export const adminNavItems = [
   { href: "/admin/maintenance", label: "Maintenance", icon: Settings2 }
 ];
 
-export type AdminNavItem = (typeof adminNavItems)[number];
+export const delegatedAdminNavItems = [
+  { href: "/admin/students", label: "Students", icon: ShieldUser },
+  { href: "/admin/profile", label: "Profile", icon: UserRound }
+];
+
+export type AdminNavItem = (typeof mainAdminNavItems)[number] | (typeof delegatedAdminNavItems)[number];
 
 export function getAdminNavItems(isMainAdmin: boolean) {
-  return adminNavItems.filter((item) => {
-    if (!isMainAdmin && (item.href === "/admin/admins" || item.href === "/admin/maintenance")) {
-      return false;
-    }
-
-    return true;
-  });
+  return isMainAdmin ? mainAdminNavItems : delegatedAdminNavItems;
 }

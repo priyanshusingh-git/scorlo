@@ -129,7 +129,7 @@ type CacheRow = {
  * Bump this version whenever the shape of `StudentAppSnapshot` changes.
  * Cached blobs that don't match will be treated as a cache miss and rebuilt.
  */
-const SNAPSHOT_VERSION = 3;
+const SNAPSHOT_VERSION = 4;
 
 let cacheSchemaPromise: Promise<void> | null = null;
 

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminSectionFallback, AdminStatsFallback } from "@/components/admin-stream-fallback";
 import { SectionBlock } from "@/components/section-block";
@@ -9,6 +9,12 @@ import { getAdminOverview } from "@/lib/queries/admin";
 
 export default async function AdminOverviewPage() {
   const admin = await requireAdminSession();
+  const isMainAdmin = isMainAdminUser(admin);
+
+  if (!isMainAdmin) {
+    redirect("/admin/students");
+  }
+
   const overviewPromise = getAdminOverview();
 
   return (
@@ -17,27 +23,24 @@ export default async function AdminOverviewPage() {
         <OverviewStats overviewPromise={overviewPromise} />
       </Suspense>
 
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(260px,0.72fr)_minmax(0,1.28fr)]">
-        <QuickActionsSection isMainAdmin={isMainAdminUser(admin)} />
-        <Suspense
-          fallback={
-            <AdminSectionFallback
-              title="Recent login activity"
-              description="The most recent successful app sessions from Firebase-authenticated users."
-              rows={4}
-            />
-          }
-        >
-          <RecentLoginsSection overviewPromise={overviewPromise} />
-        </Suspense>
-      </section>
+      <Suspense
+        fallback={
+          <AdminSectionFallback
+            title="Recent login activity"
+            description=""
+            rows={5}
+          />
+        }
+      >
+        <RecentLoginsSection overviewPromise={overviewPromise} />
+      </Suspense>
 
       <Suspense
         fallback={
           <AdminSectionFallback
             title="Recent admin actions"
-            description="Every admin mutation is written to the audit log."
-            rows={4}
+            description=""
+            rows={5}
           />
         }
       >
@@ -64,25 +67,6 @@ async function OverviewStats({
       <StatCard label="Students" value={overview.counts.totalStudents} />
       <StatCard label="Ranking rows" value={overview.counts.totalRankingRows} />
     </section>
-  );
-}
-
-function QuickActionsSection({ isMainAdmin }: { isMainAdmin: boolean }) {
-  return (
-    <SectionBlock
-      title="Quick actions"
-    >
-      <div className="space-y-3">
-        {isMainAdmin ? (
-          <QuickLink href="/admin/admins" label="Manage admins" description="Create and manage admin-only accounts." />
-        ) : null}
-        <QuickLink href="/admin/users" label="Updated users" description="Review student accounts, link state, requests, and cleanup actions." />
-        <QuickLink href="/admin/students" label="Explore students" description="Inspect live academic records and reassign links manually." />
-        {isMainAdmin ? (
-          <QuickLink href="/admin/maintenance" label="Maintenance" description="Handle rebuilds, cleanup actions, and recent operations." />
-        ) : null}
-      </div>
-    </SectionBlock>
   );
 }
 
@@ -159,26 +143,5 @@ function StatCard({ label, value }: { label: string; value: number }) {
       <div className="relative text-[11px] uppercase tracking-[0.18em] text-mist">{label}</div>
       <div className="relative mt-3 text-[2.45rem] font-semibold tracking-[-0.08em] text-ink">{value}</div>
     </div>
-  );
-}
-
-function QuickLink({
-  href,
-  label,
-  description
-}: {
-  href: string;
-  label: string;
-  description: string;
-}) {
-  return (
-    <Link
-      href={href}
-      prefetch
-      className="glass-card block rounded-[1.35rem] border border-white/70 px-4 py-4 transition hover:-translate-y-0.5 hover:border-accent/30"
-    >
-      <div className="text-sm font-semibold text-ink">{label}</div>
-      <div className="mt-1 text-sm leading-6 text-slate">{description}</div>
-    </Link>
   );
 }

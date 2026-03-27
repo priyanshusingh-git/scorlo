@@ -89,6 +89,7 @@ export type AdminDataRequestRow = {
 
 export type AdminStudentSearchRow = {
   id: number;
+  batch_rank: number | null;
   roll_no: string;
   name: string | null;
   branch_name: string | null;
@@ -99,6 +100,7 @@ export type AdminStudentSearchRow = {
   overall_percentage: string | null;
   latest_sgpa: string | null;
   active_backs: number;
+  cleared_backs: number;
   linked_app_user_id: number | null;
   linked_email: string | null;
   linked_status: string | null;
@@ -106,6 +108,13 @@ export type AdminStudentSearchRow = {
 };
 
 export type AdminStudentDetail = AdminStudentSearchRow & {
+  enrollment_no: string | null;
+  father_name: string | null;
+  mother_name: string | null;
+  gender: string | null;
+  institute_code: string | null;
+  course_code: string | null;
+  branch_code: string | null;
   recent_semesters: Array<{
     semester_no: number;
     sgpa: string | null;
@@ -114,6 +123,13 @@ export type AdminStudentDetail = AdminStudentSearchRow & {
     session_type: string | null;
     date_of_declaration: string | null;
   }>;
+};
+
+export type AdminStudentSearchResult = {
+  rows: AdminStudentSearchRow[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 };
 
 export type AdminMaintenanceInfo = {
@@ -173,7 +189,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     FROM app_users
     WHERE last_login_at IS NOT NULL
     ORDER BY last_login_at DESC, id DESC
-    LIMIT 8
+    LIMIT 5
   `) as AdminOverview["recentLogins"];
 
   const recentAuditLogs = (await sql`
@@ -187,7 +203,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     FROM admin_audit_logs aal
     JOIN app_users au ON au.id = aal.admin_user_id
     ORDER BY aal.created_at DESC, aal.id DESC
-    LIMIT 10
+    LIMIT 5
   `) as AdminOverview["recentAuditLogs"];
 
   const counts = countsRows[0];
@@ -369,29 +385,65 @@ export async function searchAdminDataRequests({
   `) as AdminDataRequestRow[];
 }
 
-export async function searchAdminStudents({ query }: { query?: string }) {
+export async function searchAdminStudents({
+  query,
+  page = 1,
+  pageSize = 10
+}: {
+  query?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<AdminStudentSearchResult> {
   const sql = getSql();
   const pattern = buildSearchPattern(query);
+  const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
+  const normalizedPageSize = Math.max(1, Math.min(100, Math.floor(pageSize)));
+  const offset = (normalizedPage - 1) * normalizedPageSize;
 
-  return (await sql`
+  const totalRows = (await sql`
+    SELECT COUNT(*)::int AS total
+    FROM students s
+    WHERE (
+      ${!pattern.enabled}
+      OR s.roll_no ILIKE ${pattern.value}
+      OR COALESCE(s.name, '') ILIKE ${pattern.value}
+      OR COALESCE(s.institute_name, '') ILIKE ${pattern.value}
+    )
+  `) as Array<{ total: number }>;
+
+  const rows = (await sql`
     SELECT
       s.id,
+      sr.rank AS batch_rank,
       s.roll_no,
+      s.enrollment_no,
       s.name,
+      s.father_name,
+      s.mother_name,
+      s.gender,
+      s.institute_code,
       s.branch_name,
+      s.branch_code,
       s.course_name,
+      s.course_code,
       s.institute_name,
       s.passing_year,
       sm.cgpa::text,
       sm.overall_percentage::text,
       sm.latest_sgpa::text,
       COALESCE(sm.active_backs, 0) AS active_backs,
+      COALESCE(sm.cleared_backs, 0) AS cleared_backs,
       au.id AS linked_app_user_id,
       au.email AS linked_email,
       sl.status AS linked_status,
       sl.dob AS linked_dob
     FROM students s
     LEFT JOIN student_metrics sm ON sm.student_id = s.id
+    LEFT JOIN student_rankings sr
+      ON sr.student_id = s.id
+     AND sr.scope_key = 'batch'
+     AND sr.metric_key = 'percentage'
+     AND sr.semester_no = 0
     LEFT JOIN student_links sl ON sl.student_id = s.id
     LEFT JOIN app_users au ON au.id = sl.app_user_id
     WHERE (
@@ -400,9 +452,17 @@ export async function searchAdminStudents({ query }: { query?: string }) {
       OR COALESCE(s.name, '') ILIKE ${pattern.value}
       OR COALESCE(s.institute_name, '') ILIKE ${pattern.value}
     )
-    ORDER BY s.updated_at DESC, s.id DESC
-    LIMIT 50
+    ORDER BY sr.rank ASC NULLS LAST, s.roll_no ASC
+    LIMIT ${normalizedPageSize}
+    OFFSET ${offset}
   `) as AdminStudentSearchRow[];
+
+  return {
+    rows,
+    totalCount: totalRows[0]?.total ?? 0,
+    page: normalizedPage,
+    pageSize: normalizedPageSize
+  };
 }
 
 export async function getAdminStudentDetail(studentId: number): Promise<AdminStudentDetail | null> {
@@ -411,15 +471,23 @@ export async function getAdminStudentDetail(studentId: number): Promise<AdminStu
     SELECT
       s.id,
       s.roll_no,
+      s.enrollment_no,
       s.name,
+      s.father_name,
+      s.mother_name,
+      s.gender,
+      s.institute_code,
       s.branch_name,
+      s.branch_code,
       s.course_name,
+      s.course_code,
       s.institute_name,
       s.passing_year,
       sm.cgpa::text,
       sm.overall_percentage::text,
       sm.latest_sgpa::text,
       COALESCE(sm.active_backs, 0) AS active_backs,
+      COALESCE(sm.cleared_backs, 0) AS cleared_backs,
       au.id AS linked_app_user_id,
       au.email AS linked_email,
       sl.status AS linked_status,
@@ -430,7 +498,7 @@ export async function getAdminStudentDetail(studentId: number): Promise<AdminStu
     LEFT JOIN app_users au ON au.id = sl.app_user_id
     WHERE s.id = ${studentId}
     LIMIT 1
-  `) as AdminStudentSearchRow[];
+  `) as Array<Omit<AdminStudentDetail, "recent_semesters">>;
 
   const student = students[0] ?? null;
   if (!student) return null;

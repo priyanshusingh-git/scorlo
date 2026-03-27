@@ -149,6 +149,21 @@ export function AdminCreateAdminForm() {
   const [password, setPassword] = useState("");
   const { pending, message, run } = useAdminRequest();
 
+  async function handleCreate() {
+    const success = await run({
+      url: "/api/admin/admins",
+      method: "POST",
+      body: { name, email, password },
+      successMessage: "Admin account created."
+    });
+
+    if (success) {
+      setName("");
+      setEmail("");
+      setPassword("");
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
@@ -178,14 +193,7 @@ export function AdminCreateAdminForm() {
       <button
         type="button"
         disabled={pending}
-        onClick={() =>
-          run({
-            url: "/api/admin/admins",
-            method: "POST",
-            body: { name, email, password },
-            successMessage: "Admin account created."
-          })
-        }
+        onClick={handleCreate}
         className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
       >
         {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}

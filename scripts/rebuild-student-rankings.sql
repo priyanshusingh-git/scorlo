@@ -103,11 +103,11 @@ batch_percentage AS (
     sb.passing_year,
     sb.overall_percentage AS score,
     RANK() OVER (
-      PARTITION BY sb.institute_name, sb.passing_year
+      PARTITION BY sb.passing_year
       ORDER BY sb.overall_percentage DESC, sb.cgpa DESC NULLS LAST, sb.active_backs ASC, sb.latest_sgpa DESC NULLS LAST, sb.roll_no ASC
     ) AS rank,
     COUNT(*) OVER (
-      PARTITION BY sb.institute_name, sb.passing_year
+      PARTITION BY sb.passing_year
     ) AS total_students
   FROM student_base sb
   WHERE sb.overall_percentage IS NOT NULL
@@ -145,11 +145,11 @@ batch_cgpa AS (
     sb.passing_year,
     sb.cgpa AS score,
     RANK() OVER (
-      PARTITION BY sb.institute_name, sb.passing_year
+      PARTITION BY sb.passing_year
       ORDER BY sb.cgpa DESC, sb.overall_percentage DESC NULLS LAST, sb.active_backs ASC, sb.latest_sgpa DESC NULLS LAST, sb.roll_no ASC
     ) AS rank,
     COUNT(*) OVER (
-      PARTITION BY sb.institute_name, sb.passing_year
+      PARTITION BY sb.passing_year
     ) AS total_students
   FROM student_base sb
   WHERE sb.cgpa IS NOT NULL
@@ -187,11 +187,11 @@ batch_latest AS (
     sb.passing_year,
     sb.latest_sgpa AS score,
     RANK() OVER (
-      PARTITION BY sb.institute_name, sb.passing_year
+      PARTITION BY sb.passing_year
       ORDER BY sb.latest_sgpa DESC, sb.marks_obtained DESC NULLS LAST, sb.active_backs ASC, sb.roll_no ASC
     ) AS rank,
     COUNT(*) OVER (
-      PARTITION BY sb.institute_name, sb.passing_year
+      PARTITION BY sb.passing_year
     ) AS total_students
   FROM student_base sb
   WHERE sb.latest_sgpa IS NOT NULL
@@ -230,11 +230,11 @@ batch_semester_sgpa AS (
     sb.passing_year,
     ls.sgpa AS score,
     RANK() OVER (
-      PARTITION BY sb.institute_name, sb.passing_year, ls.semester_no
+      PARTITION BY sb.passing_year, ls.semester_no
       ORDER BY ls.sgpa DESC, sb.marks_obtained DESC NULLS LAST, sb.active_backs ASC, sb.roll_no ASC
     ) AS rank,
     COUNT(*) OVER (
-      PARTITION BY sb.institute_name, sb.passing_year, ls.semester_no
+      PARTITION BY sb.passing_year, ls.semester_no
     ) AS total_students
   FROM latest_semesters ls
   JOIN student_base sb ON sb.student_id = ls.student_id

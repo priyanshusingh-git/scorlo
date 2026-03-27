@@ -7,33 +7,14 @@ import { StatusBadge } from "@/components/status-badge";
 import { requireMainAdminSession } from "@/lib/auth/admin";
 import { searchAdminAccounts } from "@/lib/queries/admin";
 
-type PageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default async function AdminAccountsPage({ searchParams }: PageProps) {
+export default async function AdminAccountsPage() {
   const admin = await requireMainAdminSession();
-  const params = await searchParams;
-  const query = typeof params.q === "string" ? params.q : "";
-  const adminsPromise = searchAdminAccounts({ query });
+  const adminsPromise = searchAdminAccounts({ query: "" });
 
   return (
     <AdminShell eyebrow="Admin accounts" title="Manage Admins">
       <SectionBlock title="Create admin">
         <AdminCreateAdminForm />
-      </SectionBlock>
-
-      <SectionBlock title="Admin profiles">
-        <form className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-          <input
-            type="text"
-            name="q"
-            defaultValue={query}
-            placeholder="Search by name or email"
-            className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink"
-          />
-          <button className="rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white">Search</button>
-        </form>
       </SectionBlock>
 
       <Suspense

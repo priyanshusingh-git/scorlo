@@ -4,7 +4,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { AdminSectionFallback } from "@/components/admin-stream-fallback";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
-import { requireAdminSession } from "@/lib/auth/admin";
+import { requireMainAdminSession } from "@/lib/auth/admin";
 import { searchAdminUsers } from "@/lib/queries/admin";
 
 type PageProps = {
@@ -12,7 +12,7 @@ type PageProps = {
 };
 
 export default async function AdminUsersPage({ searchParams }: PageProps) {
-  await requireAdminSession();
+  await requireMainAdminSession();
   const params = await searchParams;
   const query = typeof params.q === "string" ? params.q : "";
   const usersPromise = searchAdminUsers({ query, role: "student" });

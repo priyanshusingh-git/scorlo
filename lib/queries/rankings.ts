@@ -138,7 +138,7 @@ const RANKING_SCOPES: RankingScopeConfig[] = [
   {
     key: "batch",
     label: "Batch Wise",
-    description: "Same institute and passing year across branches."
+    description: "Same passing year across all students."
   }
 ];
 
@@ -166,9 +166,7 @@ function buildScopeSummaryLabel(student: AnchorStudent, scope: RankingScopeConfi
       .join(" • ");
   }
 
-  return [student.passing_year ? `Batch ${student.passing_year}` : null, student.institute_name]
-    .filter(Boolean)
-    .join(" • ");
+  return [student.passing_year ? `Batch ${student.passing_year}` : null].filter(Boolean).join(" • ");
 }
 
 async function getAnchorStudent(studentId: number) {
@@ -263,8 +261,7 @@ async function getScopeDataset(student: AnchorStudent, scope: RankingScopeConfig
         sm.active_backs
       FROM students s
       JOIN student_metrics sm ON sm.student_id = s.id
-      WHERE COALESCE(s.institute_name, '') = COALESCE(${student.institute_name}, '')
-        AND s.passing_year IS NOT DISTINCT FROM ${student.passing_year}
+      WHERE s.passing_year IS NOT DISTINCT FROM ${student.passing_year}
     ),
     latest_marks AS (
       SELECT DISTINCT ON (rs.student_id)

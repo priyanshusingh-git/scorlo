@@ -12,7 +12,9 @@ export function AdminDesktopNav({ isMainAdmin }: { isMainAdmin: boolean }) {
   return (
     <nav className="hidden lg:flex lg:flex-col lg:gap-2">
       {items.map(({ href, label, icon: Icon }) => {
-        const active = pathname === href;
+        const active =
+          pathname === href ||
+          (href !== "/" && href !== "/admin" && pathname.startsWith(`${href}/`));
 
         return (
           <Link

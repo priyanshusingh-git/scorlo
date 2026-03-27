@@ -22,7 +22,9 @@ export function BottomNav({ items = navItems }: { items?: NavItem[] }) {
       )}
     >
       {items.map(({ href, label, icon: Icon }) => {
-        const active = pathname === href;
+        const active =
+          pathname === href ||
+          (href !== "/" && href !== "/admin" && pathname.startsWith(`${href}/`));
 
         return (
           <Link
