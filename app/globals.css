@@ -52,7 +52,7 @@ body {
     radial-gradient(circle at 92% 14%, rgba(181, 117, 41, 0.13), transparent 22%),
     radial-gradient(circle at 50% 0%, rgba(9, 17, 27, 0.05), transparent 36%),
     linear-gradient(180deg, rgba(255, 252, 246, 0.26), rgba(255, 252, 246, 0));
-  background-attachment: fixed;
+  background-attachment: scroll;
 }
 
 a {
@@ -187,4 +187,29 @@ input {
     transparent
   );
   animation: shimmer-sweep 2.5s infinite;
+}
+
+@media (max-width: 1023px) {
+  html {
+    background: linear-gradient(180deg, #fbf6ee 0%, #f2ede5 100%), var(--bg-app);
+  }
+
+  body {
+    background: linear-gradient(180deg, rgba(255, 252, 246, 0.24), rgba(242, 237, 229, 0.06));
+  }
+
+  .page-shell {
+    background: linear-gradient(180deg, rgba(255, 252, 246, 0.38) 0%, rgba(242, 237, 229, 0.06) 100%);
+  }
+
+  .shell-panel,
+  .glass-card,
+  .surface-panel {
+    backdrop-filter: none;
+  }
+
+  .animate-route-content-in {
+    animation: none;
+    will-change: auto;
+  }
 }
