@@ -1,10 +1,11 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { AdminShell } from "@/components/admin-shell";
 import { AdminSectionFallback, AdminStatsFallback } from "@/components/admin-stream-fallback";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
+import { formatAdminActionLabel, formatAdminTargetLabel } from "@/lib/admin-audit-label";
 import { isMainAdminUser, requireAdminSession } from "@/lib/auth/admin";
+import { formatDateTimeLabel } from "@/lib/format-date";
 import { getAdminOverview } from "@/lib/queries/admin";
 
 export default async function AdminOverviewPage() {
@@ -18,7 +19,7 @@ export default async function AdminOverviewPage() {
   const overviewPromise = getAdminOverview();
 
   return (
-    <AdminShell eyebrow="Operations console" title="Admin Overview">
+    <>
       <Suspense fallback={<AdminStatsFallback />}>
         <OverviewStats overviewPromise={overviewPromise} />
       </Suspense>
@@ -46,7 +47,7 @@ export default async function AdminOverviewPage() {
       >
         <RecentAuditLogsSection overviewPromise={overviewPromise} />
       </Suspense>
-    </AdminShell>
+    </>
   );
 }
 
@@ -90,7 +91,7 @@ async function RecentLoginsSection({
             <div>
               <div className="text-sm font-semibold text-ink">{user.email}</div>
               <div className="text-xs text-slate">
-                {user.display_name ?? "No display name"} • Last login {user.last_login_at ?? "unknown"}
+                {user.display_name ?? "No display name"} • Last login {formatDateTimeLabel(user.last_login_at)}
               </div>
             </div>
             <StatusBadge tone={user.role === "admin" ? "warning" : "info"}>{user.role}</StatusBadge>
@@ -120,12 +121,12 @@ async function RecentAuditLogsSection({
               className="flex flex-wrap items-center justify-between gap-3 rounded-[1.2rem] border border-line bg-surface px-4 py-3"
             >
               <div>
-                <div className="text-sm font-semibold text-ink">{log.action_key}</div>
+                <div className="text-sm font-semibold text-ink">{formatAdminActionLabel(log.action_key)}</div>
                 <div className="text-xs text-slate">
-                  {log.target_table} #{log.target_id} • {log.admin_email}
+                  {formatAdminTargetLabel(log.target_table, log.target_id)} • {log.admin_email}
                 </div>
               </div>
-              <StatusBadge tone="accent">{log.created_at}</StatusBadge>
+              <StatusBadge tone="accent">{formatDateTimeLabel(log.created_at)}</StatusBadge>
             </div>
           ))
         ) : (

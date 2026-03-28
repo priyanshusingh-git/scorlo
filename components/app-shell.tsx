@@ -3,6 +3,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { LogoutButton } from "@/components/logout-button";
 import { MobileTopBar } from "@/components/mobile-top-bar";
+import { ProtectedSessionGuard } from "@/components/protected-session-guard";
 import { RouteContentTransition } from "@/components/route-content-transition";
 
 export function AppShell({
@@ -14,6 +15,7 @@ export function AppShell({
 }) {
   return (
     <div className="page-shell min-h-screen w-full px-4 pb-28 pt-20 sm:px-6 sm:pt-20 lg:px-8 lg:pb-10 lg:pt-8 2xl:px-10">
+      <ProtectedSessionGuard />
       <MobileTopBar
         label={<span className="font-display text-[1.7rem] tracking-[-0.06em] text-ink">Scorlo</span>}
       />

@@ -22,7 +22,7 @@ export default function ProfilePage() {
   const student = snapshot?.dashboard?.student ?? null;
 
   return (
-    <AppShell eyebrow="Account" title="Profile">
+    <AppShell eyebrow="Student account" title="Profile">
       <SectionBlock title="Student Profile">
         {!link ? (
           <LinkStudentForm link={link} email={user.email ?? null} />

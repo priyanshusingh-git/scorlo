@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   createUserWithEmailAndPassword,
+  inMemoryPersistence,
   sendEmailVerification,
   sendPasswordResetEmail,
+  setPersistence,
   signInWithEmailAndPassword,
   signOut
 } from "firebase/auth";
-import { ChevronRight, LoaderCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronRight, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { getFirebaseClientAuth } from "@/lib/firebase/client";
 
 function isValidEmail(email: string) {
@@ -50,43 +51,135 @@ function getAuthErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unable to authenticate.";
 }
 
+function getModeFromHash(hash: string): "login" | "register" | "reset" | "verify" {
+  switch (hash.replace(/^#/, "").toLowerCase()) {
+    case "register":
+      return "register";
+    case "reset":
+      return "reset";
+    case "verify":
+      return "verify";
+    default:
+      return "login";
+  }
+}
+
+function getHashForMode(mode: "login" | "register" | "reset" | "verify") {
+  return mode === "login" ? "" : `#${mode}`;
+}
+
 export function SignInForm() {
-  const router = useRouter();
   const [mode, setMode] = useState<"login" | "register" | "reset" | "verify">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+  }>({});
+  const [status, setStatus] = useState<{ tone: "error" | "success" | "info"; message: string } | null>(null);
   const [activeAction, setActiveAction] = useState<"submit" | "resend" | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [redirectingTo, setRedirectingTo] = useState<"student" | "admin" | null>(null);
 
   const submitting = activeAction === "submit";
   const resending = activeAction === "resend";
 
   useEffect(() => {
     // Initialize Firebase client immediately on mount
-    getFirebaseClientAuth();
+    const auth = getFirebaseClientAuth();
+    void setPersistence(auth, inMemoryPersistence).catch(() => {
+      // Keep the login form usable even if persistence setup fails.
+    });
+
+    const initialMode = getModeFromHash(window.location.hash);
+    if (initialMode !== mode) {
+      setMode(initialMode);
+    }
+
+    function handleHashChange() {
+      const nextMode = getModeFromHash(window.location.hash);
+      setMode(nextMode);
+      setStatus(null);
+      setFieldErrors({});
+      setPassword("");
+      setConfirmPassword("");
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    setRedirectingTo(null);
+  }
+
+    function handlePageShow(event: PageTransitionEvent) {
+      if (!event.persisted) return;
+
+      setMode(getModeFromHash(window.location.hash));
+      setStatus(null);
+      setFieldErrors({});
+      setPassword("");
+      setConfirmPassword("");
+      setShowPassword(false);
+      setShowConfirmPassword(false);
+    }
+
+    window.addEventListener("hashchange", handleHashChange);
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
   }, []);
 
   function switchMode(nextMode: "login" | "register" | "reset" | "verify") {
     setMode(nextMode);
     setStatus(null);
-    if (nextMode !== "login" && nextMode !== "verify") {
-      setPassword("");
-    }
+    setFieldErrors({});
+    setPassword("");
+    setConfirmPassword("");
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+
+    const nextHash = getHashForMode(nextMode);
+    const nextUrl = `${window.location.pathname}${window.location.search}${nextHash}`;
+    window.history.pushState({ authMode: nextMode }, "", nextUrl);
+  }
+
+  function clearFieldError(field: "email" | "password" | "confirmPassword") {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
   }
 
   async function handleResend() {
     setStatus(null);
+    setFieldErrors({});
+
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !isAllowedDomain(normalizedEmail)) {
+      setStatus({
+        tone: "error",
+        message: "Use an allowed institutional email address before requesting another verification link."
+      });
+      return;
+    }
+
     setActiveAction("resend");
     try {
       const auth = getFirebaseClientAuth();
       if (auth.currentUser) {
         await sendEmailVerification(auth.currentUser);
-        setStatus("A fresh verification link has been sent to your email.");
+        setStatus({ tone: "success", message: "A fresh verification link has been sent to your email." });
       } else {
-        setStatus("Unable to resend: Please try signing in again.");
+        setStatus({ tone: "error", message: "Unable to resend. Please sign in again." });
       }
     } catch (error) {
-      setStatus(getAuthErrorMessage(error));
+      setStatus({ tone: "error", message: getAuthErrorMessage(error) });
     } finally {
       setActiveAction(null);
     }
@@ -95,20 +188,41 @@ export function SignInForm() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus(null);
+    setFieldErrors({});
 
     const normalizedEmail = email.trim();
+    const nextErrors: { email?: string; password?: string; confirmPassword?: string } = {};
+
     if (!normalizedEmail) {
-      setStatus("Enter your email address first.");
-      return;
+      nextErrors.email = "Enter your email address.";
     }
 
-    if (!isValidEmail(normalizedEmail)) {
-      setStatus("Enter a valid email address.");
-      return;
+    if (normalizedEmail && !isValidEmail(normalizedEmail)) {
+      nextErrors.email = "Enter a valid email address.";
     }
 
-    if (mode === "register" && !isAllowedDomain(normalizedEmail)) {
-      setStatus("This email address is not permitted for registration.");
+    if (mode === "register" && normalizedEmail && !isAllowedDomain(normalizedEmail)) {
+      nextErrors.email = "This email address is not permitted for registration.";
+    }
+
+    if (mode !== "reset" && mode !== "verify") {
+      if (!password) {
+        nextErrors.password = "Enter your password.";
+      } else if (mode === "register" && password.length < 6) {
+        nextErrors.password = "Password must be at least 6 characters.";
+      }
+    }
+
+    if (mode === "register") {
+      if (!confirmPassword) {
+        nextErrors.confirmPassword = "Confirm your password.";
+      } else if (password && confirmPassword !== password) {
+        nextErrors.confirmPassword = "Passwords do not match.";
+      }
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
       return;
     }
 
@@ -116,9 +230,14 @@ export function SignInForm() {
 
     try {
       const auth = getFirebaseClientAuth();
+      await setPersistence(auth, inMemoryPersistence);
+
       if (mode === "reset") {
         await sendPasswordResetEmail(auth, normalizedEmail);
-        setStatus("Password reset email sent. Check your inbox and spam folder.");
+        setStatus({
+          tone: "success",
+          message: "If an account exists for this email, a password reset link has been sent."
+        });
         return;
       }
 
@@ -129,18 +248,16 @@ export function SignInForm() {
 
       if (mode === "register" && !credential.user.emailVerified) {
         await sendEmailVerification(credential.user);
-        await signOut(auth);
         switchMode("verify");
-        setStatus("Account created! Verify your email to continue.");
+        setStatus({ tone: "info", message: "Account created! Verify your email to continue." });
         return;
       }
 
       await credential.user.reload();
 
       if (!credential.user.emailVerified) {
-        // Still signed in but unverified
         switchMode("verify");
-        setStatus("Your email is not verified yet.");
+        setStatus({ tone: "info", message: "Your email is not verified yet." });
         return;
       }
 
@@ -158,18 +275,45 @@ export function SignInForm() {
       if (!response.ok) {
         if (payload?.error === "email_not_verified") {
           switchMode("verify");
-          setStatus("Verify your email address before signing in.");
+          setStatus({ tone: "info", message: "Verify your email address before signing in." });
           return;
         }
 
+        await signOut(auth).catch(() => {});
         throw new Error(payload?.message ?? "Unable to create a secure session.");
       }
 
-      router.push(payload?.redirectTo === "/admin" ? "/admin" : "/");
-      router.refresh();
+      const destination = payload?.redirectTo === "/admin" ? "/admin" : "/";
+      setRedirectingTo(destination === "/admin" ? "admin" : "student");
+      await signOut(auth).catch(() => {});
+      try {
+        sessionStorage.removeItem("scorlo:logged_out");
+        document.documentElement.removeAttribute("data-protected-pending");
+      } catch {
+        // Ignore storage cleanup failures before redirect.
+      }
+      window.setTimeout(() => {
+        window.location.replace(destination);
+      }, 40);
+      return;
     } catch (error) {
       const msg = getAuthErrorMessage(error);
-      setStatus(msg);
+      if (msg === "Email or password is incorrect." && mode !== "reset") {
+        setFieldErrors({
+          password: "Email or password is incorrect."
+        });
+        setStatus(null);
+        return;
+      }
+
+      if (msg === "Enter your email address first." || msg === "Enter a valid email address.") {
+        setFieldErrors({
+          email: msg === "Enter your email address first." ? "Enter your email address." : msg
+        });
+        setStatus(null);
+        return;
+      }
+      setStatus({ tone: "error", message: msg });
       if (msg.toLowerCase().includes("verify")) {
         switchMode("verify");
       }
@@ -178,69 +322,211 @@ export function SignInForm() {
     }
   }
   const titles = {
-    login: { h2: "Log in" },
-    register: { h2: "Create Account" },
-    reset: { h2: "Reset Password" },
-    verify: { h2: "Verify Email" }
+    login: { h2: "Log in", subtitle: "Continue to your Scorlo workspace." },
+    register: { h2: "Create account", subtitle: "Use your institutional email to get started." },
+    reset: { h2: "Reset password", subtitle: "We’ll send a secure reset link to your email." },
+    verify: { h2: "Verify email", subtitle: "Activate your account before your first sign in." }
   };
+
+  const isRegister = mode === "register";
+  const isReset = mode === "reset";
+  const isVerify = mode === "verify";
+
+  function renderFieldError(message?: string) {
+    if (!message) return null;
+
+    return (
+      <p className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-danger">
+        <AlertCircle className="h-3.5 w-3.5" />
+        <span>{message}</span>
+      </p>
+    );
+  }
+
+  if (redirectingTo) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold tracking-[-0.02em] text-ink">
+            Opening {redirectingTo === "admin" ? "admin workspace" : "student workspace"}
+          </h2>
+          <p className="text-sm leading-relaxed text-slate">
+            Your session is ready. Taking you to the next screen now.
+          </p>
+        </div>
+
+        <div className="rounded-inner border border-line bg-surface-muted p-4">
+          <div className="flex items-center gap-3">
+            <LoaderCircle className="h-4 w-4 animate-spin text-accent" />
+            <span className="text-sm font-medium text-ink">Preparing your dashboard...</span>
+          </div>
+          <div className="mt-4 space-y-3">
+            <div className="h-12 animate-pulse rounded-inner bg-line/50" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="h-20 animate-pulse rounded-inner bg-line/50" />
+              <div className="h-20 animate-pulse rounded-inner bg-line/50" />
+            </div>
+            <div className="h-28 animate-pulse rounded-inner bg-line/50" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="mb-8">
+      <div className="space-y-2">
         <h2 className="text-xl font-bold tracking-[-0.02em] text-ink">
           {titles[mode].h2}
         </h2>
+        <p className="text-sm leading-relaxed text-slate">{titles[mode].subtitle}</p>
       </div>
 
-      {mode !== "verify" ? (
-        <div className="space-y-4">
-          <div className="relative group">
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="Email address"
-              className="w-full rounded-inner border border-line bg-white shadow-sm px-5 py-4 text-sm text-ink outline-none transition-all placeholder:text-mist focus:border-accent/40 group-hover:border-line-strong"
-              required
-            />
-          </div>
-
-          {mode !== "reset" ? (
-            <div className="relative group">
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Password"
-                className="w-full rounded-inner border border-line bg-white shadow-sm px-5 py-4 text-sm text-ink outline-none transition-all placeholder:text-mist focus:border-accent/40 group-hover:border-line-strong"
-                minLength={6}
-                required
-              />
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {mode === "verify" ? (
+      {isVerify ? (
         <div className="rounded-inner border border-line bg-surface-muted p-5 text-[13px] leading-relaxed text-slate">
           <p className="font-medium text-ink">Action Required: Verify your email</p>
           <p className="mt-1">
-            {status || "A verification link has been sent. You will not be able to log in until your account is verified."}
+            {status?.message || "A verification link has been sent. You will not be able to log in until your account is verified."}
           </p>
           <div className="mt-4 text-[10px] font-bold uppercase tracking-[0.08em] text-mist/60">
             Check your spam folder too.
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="login-email" className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-mist">
+              Email
+            </label>
+            <input
+              id="login-email"
+              name="email"
+              type="email"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                clearFieldError("email");
+              }}
+              placeholder="you@glbitm.ac.in"
+              autoComplete="username"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              aria-invalid={fieldErrors.email ? "true" : "false"}
+              className="w-full rounded-inner border border-line bg-white px-5 py-4 text-sm text-ink outline-none transition-all placeholder:text-mist focus:border-accent/40"
+              required
+            />
+            {renderFieldError(fieldErrors.email)}
+          </div>
 
-      {mode === "reset" ? (
-        <div className="rounded-inner border border-line bg-surface-muted p-4 text-[13px] leading-relaxed text-slate">
-          <p>Enter your email and we'll send you a password reset link.</p>
+          {!isReset ? (
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label htmlFor="login-password" className="block text-[12px] font-semibold uppercase tracking-[0.08em] text-mist">
+                  Password
+                </label>
+                {mode === "login" ? (
+                  <button
+                    type="button"
+                    onClick={() => switchMode("reset")}
+                    disabled={submitting || resending}
+                    className="text-[11px] font-semibold text-accent transition-colors hover:text-accent-strong"
+                  >
+                    Forgot password?
+                  </button>
+                ) : null}
+              </div>
+              <div className="relative">
+                <input
+                  id="login-password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    clearFieldError("password");
+                  }}
+                  placeholder={isRegister ? "Create a password" : "Enter your password"}
+                  autoComplete={isRegister ? "new-password" : "current-password"}
+                  aria-invalid={fieldErrors.password ? "true" : "false"}
+                  className="w-full rounded-inner border border-line bg-white px-5 py-4 pr-14 text-sm text-ink outline-none transition-all placeholder:text-mist focus:border-accent/40"
+                  minLength={6}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-mist transition-colors hover:text-ink"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                </button>
+              </div>
+              {renderFieldError(fieldErrors.password)}
+            </div>
+          ) : null}
+
+          {isRegister ? (
+            <div>
+              <label htmlFor="confirm-password" className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-mist">
+                Confirm password
+              </label>
+              <div className="relative">
+                <input
+                  id="confirm-password"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(event) => {
+                    setConfirmPassword(event.target.value);
+                    clearFieldError("confirmPassword");
+                  }}
+                  placeholder="Re-enter your password"
+                  autoComplete="new-password"
+                  aria-invalid={fieldErrors.confirmPassword ? "true" : "false"}
+                  className="w-full rounded-inner border border-line bg-white px-5 py-4 pr-14 text-sm text-ink outline-none transition-all placeholder:text-mist focus:border-accent/40"
+                  minLength={6}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((value) => !value)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-mist transition-colors hover:text-ink"
+                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                </button>
+              </div>
+              {renderFieldError(fieldErrors.confirmPassword)}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {status && !isVerify ? (
+        <div
+          className={`rounded-inner border px-4 py-3 text-[13px] leading-relaxed ${
+            status.tone === "error"
+              ? "border-danger/20 bg-danger/5 text-danger"
+              : status.tone === "success"
+                ? "border-success/20 bg-success/5 text-success"
+                : "border-accent/20 bg-accent/5 text-accent-strong"
+          }`}
+        >
+          <div className="flex items-start gap-2">
+            {status.tone === "error" ? (
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            ) : (
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            )}
+            <p>{status.message}</p>
+          </div>
         </div>
       ) : null}
 
       <div className="flex flex-col gap-3">
-        {mode === "verify" ? (
+        {isVerify ? (
           <button
             type="button"
             onClick={handleResend}
@@ -273,9 +559,9 @@ export function SignInForm() {
                   <div className="h-1.5 w-1.5 animate-bounce rounded-full bg-white" />
                 </div>
                 <span className="text-[13px] tracking-tight">
-                  {mode === "register" 
-                    ? "Creating Account..." 
-                    : mode === "reset" 
+                  {mode === "register"
+                    ? "Creating account..."
+                    : mode === "reset"
                       ? "Sending link..." 
                       : "Authenticating..."}
                 </span>
@@ -285,7 +571,7 @@ export function SignInForm() {
                 {mode === "login"
                   ? "Sign in"
                   : mode === "register"
-                    ? "Create Account"
+                    ? "Create account"
                     : "Reset Password"}
                 <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </span>
@@ -297,14 +583,6 @@ export function SignInForm() {
       <div className="mt-8 flex flex-col items-center gap-4 border-t border-line pt-8">
         {mode === "login" ? (
           <>
-            <button
-              type="button"
-              onClick={() => switchMode("reset")}
-              disabled={submitting || resending}
-              className="text-[11px] font-bold uppercase tracking-[0.14em] text-mist hover:text-ink transition-colors"
-            >
-              Forgot password?
-            </button>
             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-mist">
               New user?{" "}
               <button
@@ -337,22 +615,6 @@ export function SignInForm() {
           </button>
         )}
       </div>
-
-  {status && mode !== "verify" ? (
-    <div className="mt-6 rounded-inner border border-line bg-surface-muted px-5 py-4 text-[13px] leading-relaxed text-ink animate-in fade-in slide-in-from-top-2 duration-300">
-      <div className="flex flex-col gap-1">
-        <p>{status}</p>
-        {(status.toLowerCase().includes("sent") || 
-          status.toLowerCase().includes("created") || 
-          status.toLowerCase().includes("verification") || 
-          status.toLowerCase().includes("link")) && (
-          <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.05em] text-mist">
-            Please check your spam folder too.
-          </p>
-        )}
-      </div>
-    </div>
-  ) : null}
     </form>
   );
 }

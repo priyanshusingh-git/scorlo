@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { AdminStudentTableRow } from "@/components/admin-student-table-row";
+import { formatBranchLabel } from "@/lib/branch-label";
 import { SectionBlock } from "@/components/section-block";
 
 type StudentRow = {
@@ -19,6 +20,8 @@ type StudentsResponse = {
   totalCount: number;
   page: number;
   pageSize: number;
+  availableBranches: string[];
+  availableCourses: string[];
   message?: string;
 };
 
@@ -29,9 +32,17 @@ function parsePositiveInt(value: string | null, fallback: number) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function buildStudentsTableUrl(query: string, page: number, pageSize: number) {
+function buildStudentsTableUrl(
+  query: string,
+  branch: string,
+  course: string,
+  page: number,
+  pageSize: number
+) {
   const params = new URLSearchParams();
   if (query.trim()) params.set("q", query.trim());
+  if (branch.trim()) params.set("branch", branch.trim());
+  if (course.trim()) params.set("course", course.trim());
   if (page > 1) params.set("page", String(page));
   if (pageSize !== 10) params.set("pageSize", String(pageSize));
   const next = params.toString();
@@ -41,10 +52,14 @@ function buildStudentsTableUrl(query: string, page: number, pageSize: number) {
 export function AdminStudentsTable() {
   const searchParams = useSearchParams();
   const urlQuery = useMemo(() => searchParams.get("q") ?? "", [searchParams]);
+  const urlBranch = useMemo(() => searchParams.get("branch") ?? "", [searchParams]);
+  const urlCourse = useMemo(() => searchParams.get("course") ?? "", [searchParams]);
   const urlPage = useMemo(() => parsePositiveInt(searchParams.get("page"), 1), [searchParams]);
   const urlPageSize = useMemo(() => parsePositiveInt(searchParams.get("pageSize"), 10), [searchParams]);
   const [draftQuery, setDraftQuery] = useState(urlQuery);
   const [query, setQuery] = useState(urlQuery);
+  const [branch, setBranch] = useState(urlBranch);
+  const [course, setCourse] = useState(urlCourse);
   const [page, setPage] = useState(urlPage);
   const [pageSize, setPageSize] = useState(urlPageSize);
   const [data, setData] = useState<StudentsResponse | null>(null);
@@ -54,13 +69,15 @@ export function AdminStudentsTable() {
   useEffect(() => {
     setDraftQuery(urlQuery);
     setQuery(urlQuery);
+    setBranch(urlBranch);
+    setCourse(urlCourse);
     setPage(urlPage);
     setPageSize(urlPageSize);
-  }, [urlPage, urlPageSize, urlQuery]);
+  }, [urlBranch, urlCourse, urlPage, urlPageSize, urlQuery]);
 
   useEffect(() => {
     const controller = new AbortController();
-    const cacheKey = JSON.stringify({ query, page, pageSize });
+    const cacheKey = JSON.stringify({ query, branch, course, page, pageSize });
     const cached = STUDENTS_TABLE_CACHE.get(cacheKey);
 
     async function load() {
@@ -75,6 +92,8 @@ export function AdminStudentsTable() {
       try {
         const params = new URLSearchParams();
         if (query.trim()) params.set("q", query.trim());
+        if (branch.trim()) params.set("branch", branch.trim());
+        if (course.trim()) params.set("course", course.trim());
         params.set("page", String(page));
         params.set("pageSize", String(pageSize));
 
@@ -94,7 +113,9 @@ export function AdminStudentsTable() {
           rows: payload.rows ?? [],
           totalCount: payload.totalCount ?? 0,
           page: payload.page ?? 1,
-          pageSize: payload.pageSize ?? pageSize
+          pageSize: payload.pageSize ?? pageSize,
+          availableBranches: payload.availableBranches ?? [],
+          availableCourses: payload.availableCourses ?? []
         };
         STUDENTS_TABLE_CACHE.set(cacheKey, nextData);
         setData(nextData);
@@ -112,26 +133,34 @@ export function AdminStudentsTable() {
     void load();
 
     return () => controller.abort();
-  }, [page, pageSize, query]);
+  }, [branch, course, page, pageSize, query]);
 
   const totalCount = data?.totalCount ?? 0;
   const currentPage = data?.page ?? page;
   const currentPageSize = data?.pageSize ?? pageSize;
   const rows = data?.rows ?? [];
+  const availableBranches = data?.availableBranches ?? [];
+  const availableCourses = data?.availableCourses ?? [];
   const totalPages = Math.max(1, Math.ceil(totalCount / currentPageSize));
 
-  function pushStudentsUrl(nextQuery: string, nextPage: number, nextPageSize: number) {
-    window.history.pushState({}, "", buildStudentsTableUrl(nextQuery, nextPage, nextPageSize));
+  function pushStudentsUrl(
+    nextQuery: string,
+    nextBranch: string,
+    nextCourse: string,
+    nextPage: number,
+    nextPageSize: number
+  ) {
+    window.history.pushState({}, "", buildStudentsTableUrl(nextQuery, nextBranch, nextCourse, nextPage, nextPageSize));
   }
 
   return (
     <SectionBlock title="Student records">
       <div className="space-y-4">
         <form
-          className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]"
+          className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_180px_auto]"
           onSubmit={(event) => {
             event.preventDefault();
-            pushStudentsUrl(draftQuery, 1, pageSize);
+            pushStudentsUrl(draftQuery, branch, course, 1, pageSize);
             setPage(1);
             setQuery(draftQuery);
           }}
@@ -143,6 +172,40 @@ export function AdminStudentsTable() {
             placeholder="Search by roll number, student name, or institute"
             className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
+          <select
+            value={branch}
+            onChange={(event) => {
+              const nextBranch = event.target.value;
+              pushStudentsUrl(query, nextBranch, course, 1, pageSize);
+              setBranch(nextBranch);
+              setPage(1);
+            }}
+            className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink"
+          >
+            <option value="">All branches</option>
+            {availableBranches.map((option) => (
+              <option key={option} value={option}>
+                {formatBranchLabel(option)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={course}
+            onChange={(event) => {
+              const nextCourse = event.target.value;
+              pushStudentsUrl(query, branch, nextCourse, 1, pageSize);
+              setCourse(nextCourse);
+              setPage(1);
+            }}
+            className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink"
+          >
+            <option value="">All courses</option>
+            {availableCourses.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
           <button className="rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white">
             Search
           </button>
@@ -156,7 +219,7 @@ export function AdminStudentsTable() {
                 value={String(pageSize)}
                 onChange={(event) => {
                   const nextSize = Number(event.target.value);
-                  pushStudentsUrl(query, 1, nextSize);
+                  pushStudentsUrl(query, branch, course, 1, nextSize);
                   setPage(1);
                   setPageSize(nextSize);
                 }}
@@ -213,7 +276,7 @@ export function AdminStudentsTable() {
               disabled={pending || currentPage <= 1}
               onClick={() => {
                 const nextPage = Math.max(1, currentPage - 1);
-                pushStudentsUrl(query, nextPage, pageSize);
+                pushStudentsUrl(query, branch, course, nextPage, pageSize);
                 setPage(nextPage);
               }}
               className="rounded-xl border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink disabled:bg-app/60 disabled:text-slate"
@@ -225,7 +288,7 @@ export function AdminStudentsTable() {
               disabled={pending || currentPage >= totalPages}
               onClick={() => {
                 const nextPage = Math.min(totalPages, currentPage + 1);
-                pushStudentsUrl(query, nextPage, pageSize);
+                pushStudentsUrl(query, branch, course, nextPage, pageSize);
                 setPage(nextPage);
               }}
               className="rounded-xl border border-line bg-ink px-4 py-2 text-sm font-semibold text-white disabled:bg-app/60 disabled:text-slate"

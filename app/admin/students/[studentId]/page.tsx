@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { AdminDangerButton } from "@/components/admin-actions";
-import { AdminShell } from "@/components/admin-shell";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
 import { isMainAdminUser, requireAdminSession } from "@/lib/auth/admin";
@@ -34,7 +33,7 @@ export default async function AdminStudentProfilePage({ params }: PageProps) {
   }
 
   return (
-    <AdminShell eyebrow="Student profile" title={detail.name ?? detail.roll_no}>
+    <>
       <SectionBlock title={detail.name ?? "Unnamed student"}>
         <div className="flex flex-wrap gap-2">
           <StatusBadge tone={detail.linked_app_user_id ? "success" : "warning"}>
@@ -112,7 +111,7 @@ export default async function AdminStudentProfilePage({ params }: PageProps) {
           />
         </SectionBlock>
       ) : null}
-    </AdminShell>
+    </>
   );
 }
 

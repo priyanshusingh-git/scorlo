@@ -130,6 +130,8 @@ export type AdminStudentSearchResult = {
   totalCount: number;
   page: number;
   pageSize: number;
+  availableBranches: string[];
+  availableCourses: string[];
 };
 
 export type AdminMaintenanceInfo = {
@@ -387,18 +389,51 @@ export async function searchAdminDataRequests({
 
 export async function searchAdminStudents({
   query,
+  branch,
+  course,
   page = 1,
   pageSize = 10
 }: {
   query?: string;
+  branch?: string;
+  course?: string;
   page?: number;
   pageSize?: number;
 }): Promise<AdminStudentSearchResult> {
   const sql = getSql();
   const pattern = buildSearchPattern(query);
+  const branchFilter = branch?.trim() ?? "";
+  const courseFilter = course?.trim() ?? "";
   const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
   const normalizedPageSize = Math.max(1, Math.min(100, Math.floor(pageSize)));
   const offset = (normalizedPage - 1) * normalizedPageSize;
+
+  const filterRows = (await sql`
+    SELECT
+      COALESCE(
+        ARRAY(
+          SELECT DISTINCT branch_name
+          FROM students
+          WHERE branch_name IS NOT NULL
+            AND branch_name <> ''
+          ORDER BY branch_name ASC
+        ),
+        ARRAY[]::text[]
+      ) AS available_branches,
+      COALESCE(
+        ARRAY(
+          SELECT DISTINCT course_name
+          FROM students
+          WHERE course_name IS NOT NULL
+            AND course_name <> ''
+          ORDER BY course_name ASC
+        ),
+        ARRAY[]::text[]
+      ) AS available_courses
+  `) as Array<{
+    available_branches: string[] | null;
+    available_courses: string[] | null;
+  }>;
 
   const totalRows = (await sql`
     SELECT COUNT(*)::int AS total
@@ -409,6 +444,8 @@ export async function searchAdminStudents({
       OR COALESCE(s.name, '') ILIKE ${pattern.value}
       OR COALESCE(s.institute_name, '') ILIKE ${pattern.value}
     )
+      AND (${branchFilter} = '' OR COALESCE(s.branch_name, '') = ${branchFilter})
+      AND (${courseFilter} = '' OR COALESCE(s.course_name, '') = ${courseFilter})
   `) as Array<{ total: number }>;
 
   const rows = (await sql`
@@ -452,6 +489,8 @@ export async function searchAdminStudents({
       OR COALESCE(s.name, '') ILIKE ${pattern.value}
       OR COALESCE(s.institute_name, '') ILIKE ${pattern.value}
     )
+      AND (${branchFilter} = '' OR COALESCE(s.branch_name, '') = ${branchFilter})
+      AND (${courseFilter} = '' OR COALESCE(s.course_name, '') = ${courseFilter})
     ORDER BY sr.rank ASC NULLS LAST, s.roll_no ASC
     LIMIT ${normalizedPageSize}
     OFFSET ${offset}
@@ -461,7 +500,9 @@ export async function searchAdminStudents({
     rows,
     totalCount: totalRows[0]?.total ?? 0,
     page: normalizedPage,
-    pageSize: normalizedPageSize
+    pageSize: normalizedPageSize,
+    availableBranches: filterRows[0]?.available_branches ?? [],
+    availableCourses: filterRows[0]?.available_courses ?? []
   };
 }
 

@@ -5,7 +5,6 @@ import {
   RankingRebuildButton,
   AuthCleanupButton
 } from "@/components/admin-actions";
-import { AdminShell } from "@/components/admin-shell";
 import { AdminSectionFallback } from "@/components/admin-stream-fallback";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
@@ -17,7 +16,7 @@ export default async function AdminMaintenancePage() {
   const infoPromise = getAdminMaintenanceInfo();
 
   return (
-    <AdminShell eyebrow="Internal maintenance" title="Maintenance">
+    <>
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(280px,0.78fr)_minmax(0,1.22fr)]">
         <Suspense
           fallback={
@@ -43,7 +42,7 @@ export default async function AdminMaintenancePage() {
           <MaintenanceLogs infoPromise={infoPromise} />
         </Suspense>
       </section>
-    </AdminShell>
+    </>
   );
 }
 

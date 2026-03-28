@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { AdminCreateAdminForm, AdminDangerButton } from "@/components/admin-actions";
-import { AdminShell } from "@/components/admin-shell";
 import { AdminSectionFallback } from "@/components/admin-stream-fallback";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
@@ -12,7 +11,7 @@ export default async function AdminAccountsPage() {
   const adminsPromise = searchAdminAccounts({ query: "" });
 
   return (
-    <AdminShell eyebrow="Admin accounts" title="Manage Admins">
+    <>
       <SectionBlock title="Create admin">
         <AdminCreateAdminForm />
       </SectionBlock>
@@ -28,7 +27,7 @@ export default async function AdminAccountsPage() {
       >
         <AdminAccountsList adminsPromise={adminsPromise} currentAdminId={admin.id} />
       </Suspense>
-    </AdminShell>
+    </>
   );
 }
 

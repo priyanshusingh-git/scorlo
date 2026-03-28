@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+import { jsonNoStore } from "@/lib/api-response";
 import { z } from "zod";
-import { getCurrentAdminSessionUser } from "@/lib/auth/admin";
+import { getCurrentAdminSessionUser, isMainAdminUser } from "@/lib/auth/admin";
 import { deleteDataRequestRecord, updateDataRequestRecord } from "@/lib/admin/mutations";
 
 const bodySchema = z.object({
@@ -22,7 +22,10 @@ function getRequestId(value: string) {
 export async function PATCH(request: Request, context: { params: Promise<{ requestId: string }> }) {
   const admin = await getCurrentAdminSessionUser();
   if (!admin) {
-    return NextResponse.json({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+    return jsonNoStore({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+  }
+  if (!isMainAdminUser(admin)) {
+    return jsonNoStore({ error: "forbidden", message: "Only the main admin can manage data requests." }, { status: 403 });
   }
 
   try {
@@ -30,9 +33,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ reque
     const id = getRequestId(requestId);
     const body = bodySchema.parse(await request.json());
     await updateDataRequestRecord(admin.id, id, body);
-    return NextResponse.json({ ok: true, message: "Data request updated." });
+    return jsonNoStore({ ok: true, message: "Data request updated." });
   } catch (error) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "data_request_update_failed", message: error instanceof Error ? error.message : "Unable to update request." },
       { status: 400 }
     );
@@ -42,16 +45,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ reque
 export async function DELETE(_: Request, context: { params: Promise<{ requestId: string }> }) {
   const admin = await getCurrentAdminSessionUser();
   if (!admin) {
-    return NextResponse.json({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+    return jsonNoStore({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+  }
+  if (!isMainAdminUser(admin)) {
+    return jsonNoStore({ error: "forbidden", message: "Only the main admin can manage data requests." }, { status: 403 });
   }
 
   try {
     const { requestId } = await context.params;
     const id = getRequestId(requestId);
     await deleteDataRequestRecord(admin.id, id);
-    return NextResponse.json({ ok: true, message: "Data request deleted." });
+    return jsonNoStore({ ok: true, message: "Data request deleted." });
   } catch (error) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "data_request_delete_failed", message: error instanceof Error ? error.message : "Unable to delete request." },
       { status: 400 }
     );

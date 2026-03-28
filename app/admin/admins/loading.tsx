@@ -1,5 +1,5 @@
 import { AdminPageSkeleton } from "@/components/admin-page-skeleton";
 
 export default function Loading() {
-  return <AdminPageSkeleton eyebrow="Admin accounts" title="Manage Admins" variant="list" />;
+  return <AdminPageSkeleton variant="list" />;
 }

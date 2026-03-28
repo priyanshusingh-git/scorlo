@@ -50,6 +50,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${hostGrotesk.variable} ${instrumentSerif.variable}`}>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  var isLogin = window.location.pathname === "/login";
+                  var loggedOut = sessionStorage.getItem("scorlo:logged_out") === "1";
+                  if (!isLogin && loggedOut) {
+                    document.documentElement.setAttribute("data-protected-pending", "1");
+                  }
+                } catch (e) {}
+              })();
+            `
+          }}
+        />
         <PwaRegister />
         {children}
       </body>

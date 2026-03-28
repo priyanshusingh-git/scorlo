@@ -1,97 +1,233 @@
-# Scorlo Design Tokens
+# Scorlo Design System
 
-Scorlo uses a custom light-first design system for a mobile-first student app. The goal is premium utility, not a generic dashboard template.
+Scorlo uses a light-first academic product UI with a restrained premium tone. The current system is built around stable surfaces, visible borders, dark shell navigation, and a mobile-first content layout.
 
-## Brand direction
+## Design direction
 
 - Product: `Scorlo`
-- Tone: premium utility
-- Visual mood: ivory surfaces, ink typography, teal accents, restrained status colors
-- Layout logic: app shell first, desktop second
+- Tone: calm, academic, professional
+- Primary layout model: persistent shell + content surfaces
+- Preferred depth model: surface contrast + border first, shadow second
+- Mobile behavior: flatter backgrounds, reduced blur, fast route transitions
 
 ## Core tokens
 
-### Colors
+### Color tokens
+
+These values are defined in [app/globals.css](/Users/priyanshu/Downloads/AktuBot-main/scorlo/app/globals.css) and mapped into Tailwind in [tailwind.config.ts](/Users/priyanshu/Downloads/AktuBot-main/scorlo/tailwind.config.ts).
 
 | Token | Value | Purpose |
 | --- | --- | --- |
-| `--bg-app` | `#f6f2ea` | app background |
-| `--bg-surface` | `#ffffff` | card surface |
-| `--bg-surface-muted` | `#f1ede5` | muted chips, tabs |
-| `--bg-surface-elevated` | `#fffdf9` | hero surfaces |
-| `--text-primary` | `#111827` | primary text |
-| `--text-secondary` | `#475569` | body text |
-| `--text-muted` | `#7b8794` | labels |
-| `--border-subtle` | `#e7e1d6` | default border |
-| `--border-strong` | `#d7d0c5` | stronger border |
-| `--accent` | `#0f8b8d` | primary accent |
-| `--accent-strong` | `#0b6668` | active button/nav |
-| `--accent-soft` | `#d9f1f0` | accent background |
-| `--success` | `#1f8f5f` | positive status |
-| `--success-soft` | `#dff4e8` | positive surface |
-| `--warning` | `#c0841a` | ranking/attention |
-| `--warning-soft` | `#f9edd2` | warning surface |
-| `--danger` | `#b54a36` | active back or fail |
-| `--danger-soft` | `#f7dfd9` | fail surface |
-| `--info` | `#2563eb` | informational tag |
-| `--info-soft` | `#dbeafe` | info surface |
+| `--bg-app` | `#f2ede5` | overall app background |
+| `--bg-surface` | `#fffaf3` | main content surface |
+| `--bg-surface-muted` | `#e8dece` | muted controls and grouped controls |
+| `--bg-surface-elevated` | `#fffdfa` | elevated light surface |
+| `--text-primary` | `#102031` | primary text |
+| `--text-secondary` | `#536273` | body copy |
+| `--text-muted` | `#7d8894` | labels and secondary notes |
+| `--border-subtle` | `#cbb9a1` | standard border |
+| `--border-strong` | `#ae977b` | stronger border |
+| `--accent` | `#0e807b` | primary accent |
+| `--accent-strong` | `#095c60` | active accent state |
+| `--accent-soft` | `#d2eeea` | accent background |
+| `--success` | `#1f8f5f` | success state |
+| `--success-soft` | `#def6e8` | success background |
+| `--warning` | `#b57529` | warning or attention state |
+| `--warning-soft` | `#f9ebd1` | warning background |
+| `--danger` | `#b34f39` | destructive or error state |
+| `--danger-soft` | `#f8ddd6` | error background |
+| `--info` | `#2563eb` | information state |
+| `--info-soft` | `#dbeafe` | information background |
+| `--shell-ink` | `#09111b` | desktop shell background start |
+| `--shell-ink-soft` | `#122234` | desktop shell background end |
 
-### Typography
+### Tailwind semantic names
+
+The Tailwind layer maps the CSS variables into semantic names:
+
+- `app`
+- `surface`
+- `surface-muted`
+- `elevated`
+- `ink`
+- `slate`
+- `mist`
+- `line`
+- `line-strong`
+- `accent`
+- `accent-strong`
+- `accent-soft`
+- `success`
+- `success-soft`
+- `warning`
+- `warning-soft`
+- `danger`
+- `danger-soft`
+- `info`
+- `info-soft`
+
+## Typography
 
 - UI font: `Host Grotesk`
-- Display accent: `Instrument Serif`
-- Display size: `2.2rem` to `2.4rem`
-- Section title: `1.125rem`
-- Card title: `1rem`
+- Display font: `Instrument Serif`
+- Primary body font token: `font-sans`
+- Display accent token: `font-display`
+
+### Typical scale
+
+- Display wordmark and hero names: `1.7rem` to `2.45rem`
+- Page or section title: `1.125rem`
+- Strong card title: `1rem`
 - Body copy: `0.875rem`
-- Labels: `0.75rem`
+- Metadata labels: `0.6875rem` to `0.75rem`
 
-### Radius
+## Radius
 
-- hero surfaces: `1.75rem` to `1.9rem`
-- cards: `1.5rem`
-- inner cards: `1.125rem` to `1.375rem`
-- badges: full pill
+Tailwind extends the shared radius system with:
 
-### Shadows
+| Token | Value | Use |
+| --- | --- | --- |
+| `rounded-inner` | `1.25rem` | inputs, grouped controls |
+| `rounded-scorlo` | `1.5rem` | cards |
+| `rounded-shell` | `2rem` | large auth surfaces |
 
-- `shadow-scorlo`: primary elevated hero surfaces
-- `shadow-soft`: standard cards and buttons
+In practice, several pages also use explicit rounded values around:
+
+- `1.2rem` to `1.35rem` for nested cards
+- `1.75rem` to `1.9rem` for primary content cards
+- `2.3rem` for desktop side rails
+
+## Shadow and depth
+
+Tailwind tokens:
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `shadow-scorlo` | `0 16px 36px rgba(17, 24, 39, 0.08)` | elevated cards and login panels |
+| `shadow-soft` | `0 8px 20px rgba(17, 24, 39, 0.06)` | lighter depth |
+
+### Depth rules
+
+- use borders first
+- use shadows sparingly
+- do not rely on glow to separate nested boxes
+- on mobile, keep blur and visual cost low
+
+## Surface hierarchy
+
+Scorlo now uses a clearer surface hierarchy.
+
+### `surface-1`
+
+- top-level content containers
+- slightly brighter than the app background
+
+### `surface-2`
+
+- nested cards inside sections
+- standard inner card level
+
+### `surface-3`
+
+- muted grouped controls
+- segmented switches and compact nested groups
+
+### Supporting surface classes
+
+- `surface-panel`: elevated translucent light panel
+- `surface-subtle`: muted low-emphasis block
+- `glass-card`: more decorative light card, used sparingly
+- `ink-panel`: dark desktop shell rail
+- `shell-panel`: soft translucent shell surface
+- `soft-grid`: chart or panel background grid
+
+## Layout system
+
+### Student shell
+
+- shared student shell under `app/(student)`
+- persistent desktop left rail
+- mobile top bar
+- mobile bottom navigation
+- route content transition wrapper for fast tab changes
+
+### Admin shell
+
+- same structural shell language as the student side
+- main admin and delegated admin share shell behavior
+- navigation differs by role
 
 ## Component rules
 
-### App shell
+### Navigation
 
-- fixed bottom nav
-- 20px side padding on mobile
-- max width `28rem`
+- desktop uses a fixed left rail
+- mobile uses top bar + bottom nav
+- active item states rely on background and border contrast, not heavy motion
 
-### Hero card
+### Cards
 
-- elevated surface
-- strongest hierarchy on screen
-- display name or headline at the top
+- primary cards should use `surface-1` or `surface-2`
+- nested cards should keep `border-line`
+- avoid white-on-cream invisible borders
 
-### Metric tile
+### Forms
 
-- 2-column mobile grid
-- live chip in top-right
-- large numeric emphasis
+- use full labels
+- place inline field errors under the field
+- avoid stacked duplicate status messages
 
-### Results
+### Login
 
-- accordion-driven, not table-driven
-- subject rows use soft app tint backgrounds
+- simple centered auth card
+- brand mark above the form
+- one clear auth state at a time
 
-### Rankings
+### Student pages
 
-- segmented tabs for metric switching
-- self row highlighted in warning-soft
-- peer rows anonymous
+- Home: hero + metric tiles + standing/progress
+- Results: summary actions + semester archive
+- Rankings: personal ranking views only
+- Support: issue form + issue history
 
-## Implementation notes
+### Admin pages
 
-- CSS variables live in `/Users/priyanshu/Downloads/AktuBot-main/scorlo/app/globals.css`
-- Tailwind tokens are mapped in `/Users/priyanshu/Downloads/AktuBot-main/scorlo/tailwind.config.ts`
-- Components should consume semantic token classes, not raw hex values
-- New screens should prefer existing primitives before introducing new visual patterns
+- table-first where data is dense
+- descriptive controls only where they help action-taking
+- destructive actions restricted and visually distinct
+
+## Motion
+
+- route transition animation: `route-content-in`
+- disabled on mobile for cheaper rendering
+- loading states use shimmer and simple pulse utilities
+
+Available animation utilities from CSS:
+
+- `animate-breathe`
+- `animate-pulse-glow`
+- `animate-draw-logo`
+- `animate-route-content-in`
+
+## Mobile rules
+
+- flatter backgrounds than desktop
+- reduced blur cost
+- no mobile route animation
+- navigation should stay quick and visually stable
+
+## Implementation references
+
+- Global tokens and utilities: [app/globals.css](/Users/priyanshu/Downloads/AktuBot-main/scorlo/app/globals.css)
+- Tailwind token mapping: [tailwind.config.ts](/Users/priyanshu/Downloads/AktuBot-main/scorlo/tailwind.config.ts)
+- Student shell: [components/app-shell.tsx](/Users/priyanshu/Downloads/AktuBot-main/scorlo/components/app-shell.tsx)
+- Admin shell: [components/admin-shell.tsx](/Users/priyanshu/Downloads/AktuBot-main/scorlo/components/admin-shell.tsx)
+- Shared section primitive: [components/section-block.tsx](/Users/priyanshu/Downloads/AktuBot-main/scorlo/components/section-block.tsx)
+
+## Design constraints
+
+- prefer semantic classes over raw hex values
+- keep the UI light-first
+- do not add decorative glow as a separation mechanism
+- prefer visible borders and stable surfaces
+- preserve the existing visual language instead of introducing unrelated patterns

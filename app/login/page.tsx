@@ -1,10 +1,15 @@
 import Image from "next/image";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { ClearStaleSession } from "@/components/clear-stale-session";
 import { SignInForm } from "@/components/sign-in-form";
 import { LoginBackground } from "@/components/login-background";
 import { getCurrentSessionUser } from "@/lib/auth/session";
+import { getSessionCookieName } from "@/lib/session-cookie";
 
 export default async function LoginPage() {
+  const cookieStore = await cookies();
+  const hadSessionCookie = Boolean(cookieStore.get(getSessionCookieName())?.value);
   const user = await getCurrentSessionUser();
 
   if (user?.role === "admin") {
@@ -17,6 +22,7 @@ export default async function LoginPage() {
 
   return (
     <main className="relative flex min-h-screen w-full flex-col items-center justify-center bg-app px-4 py-8 sm:px-6 sm:py-12">
+      {hadSessionCookie ? <ClearStaleSession /> : null}
       <LoginBackground />
 
       <div className="relative z-10 flex w-full max-w-[420px] flex-col items-center">

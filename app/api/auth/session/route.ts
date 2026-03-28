@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import { getServerEnv } from "@/lib/env";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { ensureAppUserForSession } from "@/lib/queries/app-users";
@@ -10,6 +10,8 @@ import { rateLimit } from "@/lib/rate-limiter";
 const sessionSchema = z.object({
   idToken: z.string().min(1)
 });
+
+const RECENT_SIGN_IN_WINDOW_MS = 5 * 60 * 1000;
 
 function logAuthDebug(step: string, details?: Record<string, unknown>) {
   if (process.env.NODE_ENV !== "development") return;
@@ -27,13 +29,32 @@ function getErrorDetails(error: unknown) {
   return { message: "Unknown error" };
 }
 
+function isInvalidFirebaseTokenError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("decoding firebase id token failed")
+    || message.includes("verifyidtoken() expects an id token")
+    || message.includes("firebase id token has expired")
+    || message.includes("id token has expired")
+    || message.includes("firebase id token has invalid signature")
+    || message.includes("argument passed to verifyidtoken")
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const head = await headers();
-    const ip = head.get("x-forwarded-for") || head.get("x-real-ip") || "anonymous";
+    const forwardedFor = head.get("x-forwarded-for");
+    const ip = forwardedFor?.split(",")[0]?.trim() || head.get("x-real-ip") || "anonymous";
 
     // Enforce rate limit: 10 attempts per minute (60,000ms)
-    const limit = rateLimit(ip, { limit: 10, windowMs: 60000 });
+    const limit = await rateLimit(ip, {
+      scope: "auth_session_create",
+      limit: 10,
+      windowMs: 60000
+    });
     if (!limit.success) {
       logAuthDebug("rate_limit_exceeded", { ip });
       return NextResponse.json(
@@ -56,6 +77,8 @@ export async function POST(request: Request) {
 
     const decoded = await auth.verifyIdToken(body.idToken, true);
     const email = decoded.email?.toLowerCase() || "";
+    const authTimeMs =
+      typeof decoded.auth_time === "number" ? decoded.auth_time * 1000 : Number.NaN;
 
     logAuthDebug("id_token_verified", {
       uid: decoded.uid,
@@ -76,6 +99,17 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "email_not_verified", message: "Verify your email address before signing in." },
         { status: 403 }
+      );
+    }
+
+    if (!Number.isFinite(authTimeMs) || Date.now() - authTimeMs > RECENT_SIGN_IN_WINDOW_MS) {
+      logAuthDebug("stale_sign_in", { uid: decoded.uid, email });
+      return NextResponse.json(
+        {
+          error: "recent_login_required",
+          message: "Your sign-in is too old. Please enter your credentials again."
+        },
+        { status: 401, headers: { "Cache-Control": "no-store" } }
       );
     }
 
@@ -104,16 +138,34 @@ export async function POST(request: Request) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: expiresIn / 1000
+      maxAge: expiresIn / 1000,
+      priority: "high"
     });
     logAuthDebug("cookie_set", { cookieName: sessionCookieName, uid: decoded.uid });
 
-    return NextResponse.json({
-      ok: true,
-      user: appUser,
-      redirectTo: appUser.role === "admin" ? "/admin" : "/"
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        user: appUser,
+        redirectTo: appUser.role === "admin" ? "/admin" : "/"
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: "invalid_request", message: "Invalid session request." },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    if (isInvalidFirebaseTokenError(error)) {
+      return NextResponse.json(
+        { error: "invalid_token", message: "Authentication expired. Please sign in again." },
+        { status: 401, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     console.error("[auth/session] failed", getErrorDetails(error));
 
     const message =
@@ -125,7 +177,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       { error: "session_creation_failed", message },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }
@@ -139,5 +191,5 @@ export async function DELETE() {
 
   logAuthDebug("session_deleted");
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -1,11 +1,19 @@
-import { NextResponse } from "next/server";
+import { jsonNoStore } from "@/lib/api-response";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
-import { requireMainAdminSession } from "@/lib/auth/admin";
+import { getCurrentAdminSessionUser, isMainAdminUser } from "@/lib/auth/admin";
 
 export async function POST() {
   try {
-    // 1. Ensure the user is an admin before allowing cleanup
-    await requireMainAdminSession();
+    const admin = await getCurrentAdminSessionUser();
+    if (!admin) {
+      return jsonNoStore({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+    }
+    if (!isMainAdminUser(admin)) {
+      return jsonNoStore(
+        { error: "forbidden", message: "Only the main admin can access maintenance." },
+        { status: 403 }
+      );
+    }
     
     const auth = getFirebaseAdminAuth();
     const now = Date.now();
@@ -53,14 +61,14 @@ export async function POST() {
 
     console.info(`[auth-cleanup] Completed. Scanned: ${totalUsers}, Deleted: ${deletedCount}`);
 
-    return NextResponse.json({
+    return jsonNoStore({
       message: `Successfully purged ${deletedCount} unverified student accounts.`,
       deletedCount,
       scannedCount: totalUsers
     });
   } catch (error) {
     console.error("[auth-cleanup] error", error);
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "cleanup_failed", message: error instanceof Error ? error.message : "Internal server error." },
       { status: 500 }
     );

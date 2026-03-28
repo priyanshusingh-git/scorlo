@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+import { jsonNoStore } from "@/lib/api-response";
 import { z } from "zod";
-import { getCurrentAdminSessionUser } from "@/lib/auth/admin";
+import { getCurrentAdminSessionUser, isMainAdminUser } from "@/lib/auth/admin";
 import { deleteUserAccount, updateUserRole } from "@/lib/admin/mutations";
 
 const bodySchema = z.object({
@@ -18,7 +18,10 @@ function getUserId(params: { userId: string }) {
 export async function PATCH(request: Request, context: { params: Promise<{ userId: string }> }) {
   const admin = await getCurrentAdminSessionUser();
   if (!admin) {
-    return NextResponse.json({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+    return jsonNoStore({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+  }
+  if (!isMainAdminUser(admin)) {
+    return jsonNoStore({ error: "forbidden", message: "Only the main admin can manage users." }, { status: 403 });
   }
 
   try {
@@ -26,9 +29,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ userI
     const id = getUserId({ userId });
     const body = bodySchema.parse(await request.json());
     await updateUserRole(admin.id, id, body.role);
-    return NextResponse.json({ ok: true, message: "Role updated." });
+    return jsonNoStore({ ok: true, message: "Role updated." });
   } catch (error) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "user_update_failed", message: error instanceof Error ? error.message : "Unable to update user." },
       { status: 400 }
     );
@@ -38,16 +41,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ userI
 export async function DELETE(_: Request, context: { params: Promise<{ userId: string }> }) {
   const admin = await getCurrentAdminSessionUser();
   if (!admin) {
-    return NextResponse.json({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+    return jsonNoStore({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+  }
+  if (!isMainAdminUser(admin)) {
+    return jsonNoStore({ error: "forbidden", message: "Only the main admin can manage users." }, { status: 403 });
   }
 
   try {
     const { userId } = await context.params;
     const id = getUserId({ userId });
     await deleteUserAccount(admin.id, id);
-    return NextResponse.json({ ok: true, message: "User deleted." });
+    return jsonNoStore({ ok: true, message: "User deleted." });
   } catch (error) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "user_delete_failed", message: error instanceof Error ? error.message : "Unable to delete user." },
       { status: 400 }
     );

@@ -3,6 +3,7 @@ import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { LogoutButton } from "@/components/logout-button";
 import { MobileTopBar } from "@/components/mobile-top-bar";
+import { ProtectedSessionGuard } from "@/components/protected-session-guard";
 import { isMainAdminUser } from "@/lib/auth/admin";
 import { getCurrentSessionUser } from "@/lib/auth/session";
 
@@ -10,14 +11,13 @@ export async function AdminShell({
   children
 }: {
   children: React.ReactNode;
-  title: string;
-  eyebrow: string;
 }) {
   const admin = await getCurrentSessionUser();
   const isMainAdmin = admin?.role === "admin" && isMainAdminUser(admin);
 
   return (
     <div className="page-shell min-h-screen w-full px-4 pb-28 pt-20 sm:px-6 sm:pt-20 lg:px-8 lg:pb-10 lg:pt-8 2xl:px-10">
+      <ProtectedSessionGuard />
       <MobileTopBar
         label={
           <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+import { jsonNoStore } from "@/lib/api-response";
 import { z } from "zod";
-import { getCurrentAdminSessionUser } from "@/lib/auth/admin";
+import { getCurrentAdminSessionUser, isMainAdminUser } from "@/lib/auth/admin";
 import { deleteStudentLinkRecord, updateStudentLinkRecord } from "@/lib/admin/mutations";
 
 const bodySchema = z.object({
@@ -20,7 +20,10 @@ function getLinkId(value: string) {
 export async function PATCH(request: Request, context: { params: Promise<{ linkId: string }> }) {
   const admin = await getCurrentAdminSessionUser();
   if (!admin) {
-    return NextResponse.json({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+    return jsonNoStore({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+  }
+  if (!isMainAdminUser(admin)) {
+    return jsonNoStore({ error: "forbidden", message: "Only the main admin can manage student links." }, { status: 403 });
   }
 
   try {
@@ -28,9 +31,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ linkI
     const id = getLinkId(linkId);
     const body = bodySchema.parse(await request.json());
     await updateStudentLinkRecord(admin.id, id, body);
-    return NextResponse.json({ ok: true, message: "Student link updated." });
+    return jsonNoStore({ ok: true, message: "Student link updated." });
   } catch (error) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "link_update_failed", message: error instanceof Error ? error.message : "Unable to update student link." },
       { status: 400 }
     );
@@ -40,16 +43,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ linkI
 export async function DELETE(_: Request, context: { params: Promise<{ linkId: string }> }) {
   const admin = await getCurrentAdminSessionUser();
   if (!admin) {
-    return NextResponse.json({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+    return jsonNoStore({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+  }
+  if (!isMainAdminUser(admin)) {
+    return jsonNoStore({ error: "forbidden", message: "Only the main admin can manage student links." }, { status: 403 });
   }
 
   try {
     const { linkId } = await context.params;
     const id = getLinkId(linkId);
     await deleteStudentLinkRecord(admin.id, id);
-    return NextResponse.json({ ok: true, message: "Student link deleted." });
+    return jsonNoStore({ ok: true, message: "Student link deleted." });
   } catch (error) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "link_delete_failed", message: error instanceof Error ? error.message : "Unable to delete student link." },
       { status: 400 }
     );

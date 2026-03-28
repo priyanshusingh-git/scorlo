@@ -76,6 +76,10 @@ export type DashboardPayload = {
 
 export type StudentAppSnapshot = {
   dashboard: DashboardPayload;
+  meta: {
+    academic_updated_at: string | null;
+    snapshot_updated_at: string | null;
+  };
   home_view: {
     hero: {
       summary: string;
@@ -129,7 +133,7 @@ type CacheRow = {
  * Bump this version whenever the shape of `StudentAppSnapshot` changes.
  * Cached blobs that don't match will be treated as a cache miss and rebuilt.
  */
-const SNAPSHOT_VERSION = 4;
+const SNAPSHOT_VERSION = 5;
 
 let cacheSchemaPromise: Promise<void> | null = null;
 
@@ -477,7 +481,13 @@ async function readSnapshotCache(studentId: number) {
     "rankings" in payload &&
     (payload as StudentAppSnapshot)._v === SNAPSHOT_VERSION
   ) {
-    return payload as StudentAppSnapshot;
+    return {
+      ...(payload as StudentAppSnapshot),
+      meta: {
+        ...(payload as StudentAppSnapshot).meta,
+        snapshot_updated_at: row.updated_at
+      }
+    } as StudentAppSnapshot;
   }
 
   return null;
@@ -685,6 +695,59 @@ async function buildDashboardDataForStudent(studentId: number): Promise<Dashboar
   };
 }
 
+async function getAcademicUpdatedAt(studentId: number) {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      s.updated_at::text AS student_updated_at,
+      sm.updated_at::text AS metrics_updated_at,
+      rs_latest.updated_at::text AS results_updated_at,
+      sem_latest.updated_at::text AS semesters_updated_at,
+      sub_latest.updated_at::text AS subjects_updated_at
+    FROM students s
+    LEFT JOIN student_metrics sm ON sm.student_id = s.id
+    LEFT JOIN LATERAL (
+      SELECT MAX(updated_at) AS updated_at
+      FROM result_sessions
+      WHERE student_id = ${studentId}
+    ) rs_latest ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT MAX(sr.updated_at) AS updated_at
+      FROM semester_results sr
+      JOIN result_sessions rs ON rs.id = sr.result_session_id
+      WHERE rs.student_id = ${studentId}
+    ) sem_latest ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT MAX(sub.updated_at) AS updated_at
+      FROM subject_results sub
+      JOIN semester_results sr ON sr.id = sub.semester_result_id
+      JOIN result_sessions rs ON rs.id = sr.result_session_id
+      WHERE rs.student_id = ${studentId}
+    ) sub_latest ON TRUE
+    WHERE s.id = ${studentId}
+    LIMIT 1
+  `) as Array<{
+    student_updated_at: string | null;
+    metrics_updated_at: string | null;
+    results_updated_at: string | null;
+    semesters_updated_at: string | null;
+    subjects_updated_at: string | null;
+  }>;
+
+  const values = [
+    rows[0]?.student_updated_at ?? null,
+    rows[0]?.metrics_updated_at ?? null,
+    rows[0]?.results_updated_at ?? null,
+    rows[0]?.semesters_updated_at ?? null,
+    rows[0]?.subjects_updated_at ?? null
+  ]
+    .map((value) => (value ? new Date(value) : null))
+    .filter((value): value is Date => value !== null && !Number.isNaN(value.getTime()))
+    .sort((left, right) => right.getTime() - left.getTime());
+
+  return values[0]?.toISOString() ?? null;
+}
+
 function buildHomeView(dashboard: DashboardPayload) {
   const progressPoints = buildProgressPoints(dashboard);
   const bestSemester = getBestSemester(dashboard);
@@ -712,9 +775,14 @@ function buildHomeView(dashboard: DashboardPayload) {
 async function buildStudentAppSnapshot(studentId: number): Promise<StudentAppSnapshot | null> {
   const dashboard = await buildDashboardDataForStudent(studentId);
   if (!dashboard) return null;
+  const builtAt = new Date().toISOString();
 
   return {
     dashboard,
+    meta: {
+      academic_updated_at: await getAcademicUpdatedAt(studentId),
+      snapshot_updated_at: builtAt
+    },
     home_view: buildHomeView(dashboard),
     results_view: buildResultsSummary(dashboard),
     rankings: await getRankingsForStudent(studentId)

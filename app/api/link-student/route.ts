@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { jsonNoStore } from "@/lib/api-response";
 import { ZodError, z } from "zod";
 import { getCurrentSessionUser } from "@/lib/auth/session";
 import {
@@ -15,11 +15,11 @@ export async function POST(request: Request) {
   const user = await getCurrentSessionUser();
 
   if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    return jsonNoStore({ error: "unauthorized" }, { status: 401 });
   }
 
   if (user.role !== "student") {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "forbidden", message: "Only student accounts can link academic records." },
       { status: 403 }
     );
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       dob: body.dob
     });
 
-    return NextResponse.json({
+    return jsonNoStore({
       ok: true,
       link: result.link,
       message: result.message
@@ -42,21 +42,21 @@ export async function POST(request: Request) {
     console.error("[api/link-student] error", error);
 
     if (error instanceof ZodError) {
-      return NextResponse.json(
+      return jsonNoStore(
         { error: "invalid_request", message: "Enter a valid roll number and date of birth." },
         { status: 400 }
       );
     }
 
     if (error instanceof StudentLinkConflictError) {
-      return NextResponse.json(
+      return jsonNoStore(
         { error: "student_link_conflict", message: error.message },
         { status: 409 }
       );
     }
 
     const isProd = process.env.NODE_ENV === "production";
-    return NextResponse.json(
+    return jsonNoStore(
       { 
         error: "internal_server_error", 
         message: "An unexpected error occurred while linking your academic record.",

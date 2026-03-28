@@ -1,4 +1,3 @@
-import { AdminShell } from "@/components/admin-shell";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
 import { isMainAdminUser, requireAdminSession } from "@/lib/auth/admin";
@@ -8,7 +7,7 @@ export default async function AdminProfilePage() {
   const isMainAdmin = isMainAdminUser(admin);
 
   return (
-    <AdminShell eyebrow="Admin profile" title="Profile">
+    <>
       <SectionBlock title={admin.display_name ?? admin.email}>
         <div className="mb-4 flex flex-wrap gap-2">
           <StatusBadge tone="warning">{isMainAdmin ? "Main admin" : "Admin"}</StatusBadge>
@@ -32,6 +31,6 @@ export default async function AdminProfilePage() {
           </div>
         </div>
       </SectionBlock>
-    </AdminShell>
+    </>
   );
 }

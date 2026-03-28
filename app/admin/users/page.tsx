@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { AdminDangerButton, AdminDataRequestForm, AdminLinkForm } from "@/components/admin-actions";
-import { AdminShell } from "@/components/admin-shell";
 import { AdminSectionFallback } from "@/components/admin-stream-fallback";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
@@ -18,7 +17,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   const usersPromise = searchAdminUsers({ query, role: "student" });
 
   return (
-    <AdminShell eyebrow="Student accounts" title="Updated Users">
+    <>
       <SectionBlock title="Search">
         <form className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <input
@@ -35,7 +34,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
       <Suspense fallback={<AdminSectionFallback title="Updated users" description="" rows={4} />}>
         <UpdatedUsersList usersPromise={usersPromise} />
       </Suspense>
-    </AdminShell>
+    </>
   );
 }
 

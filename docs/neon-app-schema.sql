@@ -1,3 +1,18 @@
+-- Scorlo app-managed Neon schema
+--
+-- This document covers the tables created or managed by the Scorlo app layer.
+-- It does not define the upstream academic source tables such as:
+--   students
+--   semester_results
+--   subject_results
+--   student_metrics
+--
+-- Notes:
+-- - student routes read from student_app_snapshot_cache for speed
+-- - rankings are stored in student_rankings
+-- - support issues are stored in support_issues
+-- - auth session rate limiting is stored in auth_rate_limits
+
 CREATE TABLE IF NOT EXISTS app_users (
     id BIGSERIAL PRIMARY KEY,
     firebase_uid TEXT NOT NULL UNIQUE,
@@ -10,6 +25,7 @@ CREATE TABLE IF NOT EXISTS app_users (
     last_login_at TIMESTAMPTZ
 );
 
+-- One app account can have one current student link state.
 CREATE TABLE IF NOT EXISTS student_links (
     id BIGSERIAL PRIMARY KEY,
     app_user_id BIGINT NOT NULL UNIQUE REFERENCES app_users(id) ON DELETE CASCADE,
@@ -21,6 +37,7 @@ CREATE TABLE IF NOT EXISTS student_links (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Stores reviewable student linking requests and corrections.
 CREATE TABLE IF NOT EXISTS data_requests (
     id BIGSERIAL PRIMARY KEY,
     app_user_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
@@ -32,6 +49,12 @@ CREATE TABLE IF NOT EXISTS data_requests (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Stores precomputed ranking rows used by student "My Ranks" and admin rank views.
+--
+-- Current ranking model:
+-- - branch scope remains cohort-specific
+-- - batch scope is currently based on passing_year
+-- - rank values are stored from the ranking rebuild pipeline
 CREATE TABLE IF NOT EXISTS student_rankings (
     student_id BIGINT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     scope_key VARCHAR(16) NOT NULL,
@@ -49,6 +72,7 @@ CREATE TABLE IF NOT EXISTS student_rankings (
     PRIMARY KEY (student_id, scope_key, metric_key, semester_no)
 );
 
+-- Stores the snapshot payload served to linked students.
 CREATE TABLE IF NOT EXISTS student_app_snapshot_cache (
     student_id BIGINT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
     payload_json JSONB NOT NULL,
@@ -56,6 +80,24 @@ CREATE TABLE IF NOT EXISTS student_app_snapshot_cache (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Student-submitted support records and admin responses.
+CREATE TABLE IF NOT EXISTS support_issues (
+    id BIGSERIAL PRIMARY KEY,
+    app_user_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+    student_id BIGINT REFERENCES students(id) ON DELETE SET NULL,
+    roll_no VARCHAR(32),
+    link_status VARCHAR(32),
+    issue_type VARCHAR(32) NOT NULL,
+    title VARCHAR(160) NOT NULL,
+    description TEXT NOT NULL,
+    status VARCHAR(24) NOT NULL DEFAULT 'open',
+    admin_notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at TIMESTAMPTZ
+);
+
+-- Admin action audit trail.
 CREATE TABLE IF NOT EXISTS admin_audit_logs (
     id BIGSERIAL PRIMARY KEY,
     admin_user_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
@@ -67,15 +109,43 @@ CREATE TABLE IF NOT EXISTS admin_audit_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Shared auth/session rate limit store used by the app API.
+-- Identifiers are stored as SHA-256 hashes, not raw values.
+CREATE TABLE IF NOT EXISTS auth_rate_limits (
+    scope_key VARCHAR(64) NOT NULL,
+    identifier_hash CHAR(64) NOT NULL,
+    request_count INTEGER NOT NULL,
+    reset_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (scope_key, identifier_hash)
+);
+
 CREATE INDEX IF NOT EXISTS ix_app_users_firebase_uid ON app_users(firebase_uid);
 CREATE INDEX IF NOT EXISTS ix_app_users_role ON app_users(role);
+
 CREATE INDEX IF NOT EXISTS ix_student_links_student_id ON student_links(student_id);
 CREATE INDEX IF NOT EXISTS ix_student_links_status ON student_links(status);
+
 CREATE INDEX IF NOT EXISTS ix_data_requests_status ON data_requests(status);
 CREATE INDEX IF NOT EXISTS ix_data_requests_roll_no ON data_requests(roll_no);
+
 CREATE INDEX IF NOT EXISTS ix_student_rankings_lookup
     ON student_rankings(scope_key, metric_key, semester_no, institute_name, branch_name, course_name, passing_year, rank);
+
 CREATE INDEX IF NOT EXISTS ix_student_app_snapshot_cache_updated_at
     ON student_app_snapshot_cache(updated_at DESC);
-CREATE INDEX IF NOT EXISTS ix_admin_audit_logs_admin_user_id ON admin_audit_logs(admin_user_id);
-CREATE INDEX IF NOT EXISTS ix_admin_audit_logs_target_table ON admin_audit_logs(target_table);
+
+CREATE INDEX IF NOT EXISTS ix_support_issues_app_user_id
+    ON support_issues(app_user_id);
+CREATE INDEX IF NOT EXISTS ix_support_issues_status
+    ON support_issues(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_support_issues_student_id
+    ON support_issues(student_id);
+
+CREATE INDEX IF NOT EXISTS ix_admin_audit_logs_admin_user_id
+    ON admin_audit_logs(admin_user_id);
+CREATE INDEX IF NOT EXISTS ix_admin_audit_logs_target_table
+    ON admin_audit_logs(target_table);
+
+CREATE INDEX IF NOT EXISTS ix_auth_rate_limits_reset_at
+    ON auth_rate_limits(reset_at);

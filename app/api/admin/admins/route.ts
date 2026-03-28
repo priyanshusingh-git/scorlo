@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { jsonNoStore } from "@/lib/api-response";
 import { z } from "zod";
 import { createAdminAccount } from "@/lib/admin/mutations";
 import { getCurrentAdminSessionUser, isMainAdminUser } from "@/lib/auth/admin";
@@ -12,11 +12,11 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   const admin = await getCurrentAdminSessionUser();
   if (!admin) {
-    return NextResponse.json({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
+    return jsonNoStore({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
   }
 
   if (!isMainAdminUser(admin)) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "forbidden", message: "Only the main admin can create admin accounts." },
       { status: 403 }
     );
@@ -25,9 +25,9 @@ export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await request.json());
     await createAdminAccount(admin.id, body);
-    return NextResponse.json({ ok: true, message: "Admin account created." });
+    return jsonNoStore({ ok: true, message: "Admin account created." });
   } catch (error) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "admin_create_failed", message: error instanceof Error ? error.message : "Unable to create admin." },
       { status: 400 }
     );

@@ -15,6 +15,11 @@ export function LogoutButton({
     setPending(true);
 
     try {
+      try {
+        sessionStorage.setItem("scorlo:logged_out", "1");
+      } catch {
+        // Best-effort marker for browser history restores.
+      }
       await fetch("/api/auth/session", { method: "DELETE" });
       try {
         await getFirebaseClientAuth().signOut();
