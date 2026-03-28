@@ -1,6 +1,5 @@
 "use client";
 
-import { AppShell } from "@/components/app-shell";
 import { LinkStudentForm } from "@/components/link-student-form";
 import { PendingVerification } from "@/components/pending-verification";
 import { SectionBlock } from "@/components/section-block";
@@ -17,17 +16,22 @@ function ProfileField({ label, value }: { label: string; value: string | null | 
 
 export default function ProfilePage() {
   const { user, link, snapshot } = useStudentShell();
-  const isLinked = link?.status === "linked";
-  const isPending = link?.status === "pending_data" || link?.status === "rejected";
+  const isPending = link?.status === "pending_data";
+  const isRejected = link?.status === "rejected";
   const student = snapshot?.dashboard?.student ?? null;
 
   return (
-    <AppShell eyebrow="Student account" title="Profile">
+    <>
       <SectionBlock title="Student Profile">
         {!link ? (
           <LinkStudentForm link={link} email={user.email ?? null} />
         ) : isPending ? (
           <PendingVerification rollNo={link?.roll_no ?? null} />
+        ) : isRejected ? (
+          <div className="space-y-5">
+            <PendingVerification rollNo={link?.roll_no ?? null} rejected />
+            <LinkStudentForm link={link} email={user.email ?? null} />
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <ProfileField label="Name" value={student?.name} />
@@ -39,6 +43,6 @@ export default function ProfilePage() {
           </div>
         )}
       </SectionBlock>
-    </AppShell>
+    </>
   );
 }

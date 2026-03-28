@@ -10,13 +10,10 @@ export function RouteContentTransition({
   children: React.ReactNode;
   className?: string;
 }) {
-  const pathname = usePathname();
+  usePathname();
 
   return (
-    <div
-      key={pathname}
-      className={cn("animate-route-content-in flex flex-col gap-5 lg:gap-6", className)}
-    >
+    <div className={cn("flex flex-col gap-5 lg:gap-6", className)}>
       {children}
     </div>
   );

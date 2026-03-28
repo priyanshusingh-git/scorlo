@@ -1,17 +1,15 @@
 import { DesktopNav } from "@/components/app-nav";
-import { BottomNav } from "@/components/bottom-nav";
 import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { LogoutButton } from "@/components/logout-button";
 import { MobileTopBar } from "@/components/mobile-top-bar";
 import { ProtectedSessionGuard } from "@/components/protected-session-guard";
 import { RouteContentTransition } from "@/components/route-content-transition";
+import { StudentBottomNav } from "@/components/student-bottom-nav";
 
 export function AppShell({
   children
 }: {
   children: React.ReactNode;
-  title: string;
-  eyebrow: string;
 }) {
   return (
     <div className="page-shell min-h-screen w-full px-4 pb-28 pt-20 sm:px-6 sm:pt-20 lg:px-8 lg:pb-10 lg:pt-8 2xl:px-10">
@@ -43,7 +41,7 @@ export function AppShell({
         </div>
       </div>
       <InstallAppPrompt />
-      <BottomNav />
+      <StudentBottomNav />
     </div>
   );
 }

@@ -6,6 +6,14 @@ export function ProtectedSessionGuard() {
   useLayoutEffect(() => {
     let inFlight = false;
 
+    function hasLogoutMarker() {
+      try {
+        return sessionStorage.getItem("scorlo:logged_out") === "1";
+      } catch {
+        return false;
+      }
+    }
+
     async function verifySession() {
       if (inFlight) return;
       inFlight = true;
@@ -29,7 +37,7 @@ export function ProtectedSessionGuard() {
         }
         document.documentElement.removeAttribute("data-protected-pending");
       } catch {
-        if (hasLogoutMarker) {
+        if (hasLogoutMarker()) {
           window.location.replace("/login");
           return;
         }
@@ -39,39 +47,22 @@ export function ProtectedSessionGuard() {
       }
     }
 
-    const hasLogoutMarker = (() => {
-      try {
-        return sessionStorage.getItem("scorlo:logged_out") === "1";
-      } catch {
-        return false;
-      }
-    })();
-
-    if (hasLogoutMarker) {
+    if (hasLogoutMarker()) {
       document.documentElement.setAttribute("data-protected-pending", "1");
       void verifySession();
     }
 
     function handlePageShow(event: PageTransitionEvent) {
-      if (event.persisted) {
-        document.documentElement.setAttribute("data-protected-pending", "1");
-      }
-      void verifySession();
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === "visible") {
+      if (event.persisted && hasLogoutMarker()) {
         document.documentElement.setAttribute("data-protected-pending", "1");
         void verifySession();
       }
     }
 
     window.addEventListener("pageshow", handlePageShow);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       window.removeEventListener("pageshow", handlePageShow);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 

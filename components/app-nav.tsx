@@ -1,23 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { navItems } from "@/lib/nav-items";
+import { useStudentShell } from "@/components/student-shell-provider";
 
 export function DesktopNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { link } = useStudentShell();
+  const locked = !link || link.status !== "linked";
 
   return (
     <nav className="hidden lg:flex lg:flex-col lg:gap-2">
       {navItems.map(({ href, label, icon: Icon }) => {
         const active = pathname === href;
+        const lockedItem = locked && href !== "/profile" && href !== "/support";
 
         return (
           <Link
             key={href}
             href={href}
             prefetch
+            onClick={(event) => {
+              if (!lockedItem) return;
+              event.preventDefault();
+              router.push("/profile");
+            }}
             className={cn(
               "group flex items-center gap-3 rounded-[1.2rem] border px-4 py-3 text-sm font-medium transition-all duration-200 ease-out",
               active

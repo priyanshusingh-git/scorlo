@@ -1,8 +1,6 @@
 "use client";
 
-import { LinkStudentForm } from "@/components/link-student-form";
-import { PendingVerification } from "@/components/pending-verification";
-import { AppShell } from "@/components/app-shell";
+import { ClientRedirect } from "@/components/client-redirect";
 import { HeroCard } from "@/components/hero-card";
 import { MetricTile } from "@/components/metric-tile";
 import { ProgressChart } from "@/components/progress-chart";
@@ -19,42 +17,13 @@ export default function HomePage() {
   const homeView = snapshot?.home_view ?? null;
   const latestSemester = dashboard?.semesters[0] ?? null;
 
-  return (
-    <AppShell eyebrow="Student portal" title="Home">
-      {needsLink ? (
-        <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
-          <SectionBlock
-            title="Complete your academic link"
-            className="xl:sticky xl:top-8 xl:self-start"
-          >
-            <LinkStudentForm link={link} email={user.email ?? null} />
-          </SectionBlock>
+  if (needsLink || isPending) {
+    return <ClientRedirect href="/profile" />;
+  }
 
-          <SectionBlock title="Next steps">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="surface-2 rounded-[1.35rem] border border-line px-4 py-5">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Step 1</div>
-                <div className="mt-2 text-lg font-semibold text-ink">Enter roll number</div>
-              </div>
-              <div className="surface-2 rounded-[1.35rem] border border-line px-4 py-5">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Step 2</div>
-                <div className="mt-2 text-lg font-semibold text-ink">Confirm date of birth</div>
-              </div>
-              <div className="surface-2 rounded-[1.35rem] border border-line px-4 py-5">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-mist">Step 3</div>
-                <div className="mt-2 text-lg font-semibold text-ink">Unlock dashboard</div>
-              </div>
-            </div>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <StatusBadge tone="info">Student access</StatusBadge>
-              <StatusBadge tone="accent">Academic profile</StatusBadge>
-              <StatusBadge tone="warning">Review if not found</StatusBadge>
-            </div>
-          </SectionBlock>
-        </section>
-      ) : isPending ? (
-        <PendingVerification rollNo={link?.roll_no ?? null} />
-      ) : !dashboard ? (
+  return (
+    <>
+      {!dashboard ? (
         <SectionBlock title="Academic record unavailable">
           <p className="text-sm leading-7 text-slate">
             Try refreshing once. If the issue persists, check again in a moment.
@@ -123,6 +92,6 @@ export default function HomePage() {
           </section>
         </>
       )}
-    </AppShell>
+    </>
   );
 }

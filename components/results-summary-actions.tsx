@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { jsPDF } from "jspdf";
-import { Copy, Download, LoaderCircle, Share2 } from "lucide-react";
+import { Download, LoaderCircle } from "lucide-react";
 import type { StudentAppSnapshot } from "@/lib/queries/dashboard";
 
 function buildSummaryText(snapshot: StudentAppSnapshot) {
@@ -52,15 +52,10 @@ function sanitizeFileName(value: string) {
 }
 
 export function ResultsSummaryActions({ snapshot }: { snapshot: StudentAppSnapshot }) {
-  const [message, setMessage] = useState<string | null>(null);
   const [pendingExport, setPendingExport] = useState(false);
-  const [pendingShare, setPendingShare] = useState(false);
-
-  const summaryText = buildSummaryText(snapshot);
 
   async function handleExportPdf() {
     setPendingExport(true);
-    setMessage(null);
 
     try {
       const { dashboard } = snapshot;
@@ -365,73 +360,23 @@ export function ResultsSummaryActions({ snapshot }: { snapshot: StudentAppSnapsh
 
       const safeName = sanitizeFileName(dashboard.student.name ?? dashboard.student.roll_no);
       doc.save(`scorlo-result-summary-${safeName || "student"}.pdf`);
-      setMessage("PDF downloaded.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to export the PDF.");
+    } catch {
+      // Ignore export errors here; the button state is kept stable and the UI remains unchanged.
     } finally {
       setPendingExport(false);
     }
   }
 
-  async function handleShare() {
-    setPendingShare(true);
-    setMessage(null);
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Scorlo Result Summary",
-          text: summaryText
-        });
-        setMessage("Summary shared.");
-        return;
-      }
-
-      await navigator.clipboard.writeText(summaryText);
-      setMessage("Summary copied.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to share the summary.");
-    } finally {
-      setPendingShare(false);
-    }
-  }
-
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <button
-        type="button"
-        onClick={handleExportPdf}
-        disabled={pendingExport}
-        className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-      >
-        {pendingExport ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-        <span>{pendingExport ? "Exporting..." : "Export PDF"}</span>
-      </button>
-      <button
-        type="button"
-        onClick={handleShare}
-        disabled={pendingShare}
-        className="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-semibold text-ink disabled:opacity-60"
-      >
-        {pendingShare ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-        <span>{pendingShare ? "Sharing..." : "Share summary"}</span>
-      </button>
-      <button
-        type="button"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(summaryText);
-            setMessage("Summary copied.");
-          } catch (error) {
-            setMessage(error instanceof Error ? error.message : "Unable to copy the summary.");
-          }
-        }}
-        className="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-semibold text-ink"
-      >
-        <Copy className="h-4 w-4" />
-        <span>Copy summary</span>
-      </button>
-      {message ? <span className="text-sm text-slate">{message}</span> : null}
-    </div>
+    <button
+      type="button"
+      onClick={handleExportPdf}
+      disabled={pendingExport}
+      className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-ink text-white disabled:opacity-60"
+      aria-label={pendingExport ? "Exporting PDF" : "Download PDF"}
+      title={pendingExport ? "Exporting..." : "Download PDF"}
+    >
+      {pendingExport ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+    </button>
   );
 }

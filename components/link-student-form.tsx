@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LoaderCircle } from "lucide-react";
+import { CalendarDays, ChevronRight, LoaderCircle } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 
 type LinkState = {
@@ -46,6 +46,7 @@ export function LinkStudentForm({
   email: string | null;
 }) {
   const router = useRouter();
+  const datePickerRef = useRef<HTMLInputElement | null>(null);
   const [rollNo, setRollNo] = useState(link?.roll_no ?? "");
   const [dob, setDob] = useState("");
   const [pending, setPending] = useState(false);
@@ -88,6 +89,27 @@ export function LinkStudentForm({
     }
   }
 
+  function formatDobInput(value: string) {
+    const digits = value.replace(/\D/g, "").slice(0, 8);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+  }
+
+  function formatDateValue(value: string) {
+    const [year, month, day] = value.split("-");
+    if (!year || !month || !day) return "";
+    return `${day}-${month}-${year}`;
+  }
+
+  function parseDobToDateInput(value: string) {
+    const parts = value.split("-");
+    if (parts.length !== 3) return "";
+    const [day, month, year] = parts;
+    if (day.length !== 2 || month.length !== 2 || year.length !== 4) return "";
+    return `${year}-${month}-${day}`;
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
@@ -114,16 +136,45 @@ export function LinkStudentForm({
           maxLength={32}
           required
         />
-        <input
-          type="text"
-          inputMode="numeric"
-          value={dob}
-          onChange={(event) => setDob(event.target.value)}
-          placeholder="DD-MM-YYYY"
-          className="surface-2 w-full rounded-[1.25rem] border border-line px-4 py-4 text-sm text-ink outline-none placeholder:text-mist"
-          pattern="\d{2}-\d{2}-\d{4}"
-          required
-        />
+        <div className="relative">
+          <input
+            type="text"
+            inputMode="numeric"
+            value={dob}
+            onChange={(event) => setDob(formatDobInput(event.target.value))}
+            placeholder="DD-MM-YYYY"
+            className="surface-2 w-full rounded-[1.25rem] border border-line px-4 py-4 pr-14 text-sm text-ink outline-none placeholder:text-mist"
+            pattern="\d{2}-\d{2}-\d{4}"
+            maxLength={10}
+            required
+          />
+          <input
+            ref={datePickerRef}
+            type="date"
+            value={parseDobToDateInput(dob)}
+            onChange={(event) => setDob(formatDateValue(event.target.value))}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const dateInput = datePickerRef.current;
+              if (!dateInput) return;
+              if (typeof dateInput.showPicker === "function") {
+                dateInput.showPicker();
+              } else {
+                dateInput.focus();
+                dateInput.click();
+              }
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-mist transition hover:bg-app/70 hover:text-ink"
+            aria-label="Choose date of birth"
+          >
+            <CalendarDays className="h-4 w-4" />
+          </button>
+        </div>
         <button
           type="submit"
           disabled={pending}

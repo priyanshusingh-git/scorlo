@@ -1,6 +1,5 @@
 "use client";
 
-import { AppShell } from "@/components/app-shell";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
 import { StudentSupportForm } from "@/components/student-support-form";
@@ -11,7 +10,7 @@ export default function SupportPage() {
   const { link } = useStudentShell();
 
   return (
-    <AppShell eyebrow="Student support" title="Support">
+    <>
       <SectionBlock
         title="Report an issue"
         description="Use this if anything in your academic record is missing, incorrect, or blocked."
@@ -26,6 +25,6 @@ export default function SupportPage() {
       <SectionBlock title="Recent issues">
         <StudentSupportIssues />
       </SectionBlock>
-    </AppShell>
+    </>
   );
 }

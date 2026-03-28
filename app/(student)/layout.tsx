@@ -1,4 +1,5 @@
 import { requireStudentSession } from "@/lib/auth/session";
+import { AppShell } from "@/components/app-shell";
 import { getStudentLinkForUser } from "@/lib/queries/student-link";
 import { getStudentAppSnapshot } from "@/lib/queries/dashboard";
 import { StudentShellProvider } from "@/components/student-shell-provider";
@@ -23,7 +24,7 @@ export default async function StudentLayout({
         snapshot
       }}
     >
-      {children}
+      <AppShell>{children}</AppShell>
     </StudentShellProvider>
   );
 }
