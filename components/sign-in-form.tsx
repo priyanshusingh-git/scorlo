@@ -68,7 +68,13 @@ function getHashForMode(mode: "login" | "register" | "reset" | "verify") {
   return mode === "login" ? "" : `#${mode}`;
 }
 
-export function SignInForm() {
+export function SignInForm({
+  signupsEnabled,
+  initialNotice = null
+}: {
+  signupsEnabled: boolean;
+  initialNotice?: { tone: "error" | "success" | "info"; message: string } | null;
+}) {
   const [mode, setMode] = useState<"login" | "register" | "reset" | "verify">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -78,7 +84,7 @@ export function SignInForm() {
     password?: string;
     confirmPassword?: string;
   }>({});
-  const [status, setStatus] = useState<{ tone: "error" | "success" | "info"; message: string } | null>(null);
+  const [status, setStatus] = useState<{ tone: "error" | "success" | "info"; message: string } | null>(initialNotice);
   const [activeAction, setActiveAction] = useState<"submit" | "resend" | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -95,21 +101,32 @@ export function SignInForm() {
     });
 
     const initialMode = getModeFromHash(window.location.hash);
-    if (initialMode !== mode) {
+    if (initialMode === "register" && !signupsEnabled) {
+      setMode("login");
+      setStatus({ tone: "info", message: "New signups are currently disabled by the admin." });
+      window.history.replaceState({ authMode: "login" }, "", `${window.location.pathname}${window.location.search}`);
+    } else if (initialMode !== "login") {
       setMode(initialMode);
     }
 
     function handleHashChange() {
       const nextMode = getModeFromHash(window.location.hash);
+      if (nextMode === "register" && !signupsEnabled) {
+        setMode("login");
+        setStatus({ tone: "info", message: "New signups are currently disabled by the admin." });
+        window.history.replaceState({ authMode: "login" }, "", `${window.location.pathname}${window.location.search}`);
+        return;
+      }
+
       setMode(nextMode);
       setStatus(null);
       setFieldErrors({});
       setPassword("");
       setConfirmPassword("");
-    setShowPassword(false);
-    setShowConfirmPassword(false);
-    setRedirectingTo(null);
-  }
+      setShowPassword(false);
+      setShowConfirmPassword(false);
+      setRedirectingTo(null);
+    }
 
     function handlePageShow(event: PageTransitionEvent) {
       if (!event.persisted) return;
@@ -130,9 +147,15 @@ export function SignInForm() {
       window.removeEventListener("hashchange", handleHashChange);
       window.removeEventListener("pageshow", handlePageShow);
     };
-  }, []);
+  }, [signupsEnabled]);
 
   function switchMode(nextMode: "login" | "register" | "reset" | "verify") {
+    if (nextMode === "register" && !signupsEnabled) {
+      setMode("login");
+      setStatus({ tone: "info", message: "New signups are currently disabled by the admin." });
+      return;
+    }
+
     setMode(nextMode);
     setStatus(null);
     setFieldErrors({});
@@ -203,6 +226,12 @@ export function SignInForm() {
 
     if (mode === "register" && normalizedEmail && !isAllowedDomain(normalizedEmail)) {
       nextErrors.email = "This email address is not permitted for registration.";
+    }
+
+    if (mode === "register" && !signupsEnabled) {
+      setStatus({ tone: "info", message: "New signups are currently disabled by the admin." });
+      setActiveAction(null);
+      return;
     }
 
     if (mode !== "reset" && mode !== "verify") {
@@ -588,10 +617,10 @@ export function SignInForm() {
               <button
                 type="button"
                 onClick={() => switchMode("register")}
-                disabled={submitting || resending}
+                disabled={submitting || resending || !signupsEnabled}
                 className="text-accent underline underline-offset-4 hover:text-accent-strong transition-colors"
               >
-                Sign up
+                {signupsEnabled ? "Sign up" : "Signups closed"}
               </button>
             </p>
           </>

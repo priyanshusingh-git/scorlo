@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getAppRuntimeControls } from "@/lib/app-runtime-controls";
 import { getSql } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 import { deleteDashboardCacheForStudent, rebuildDashboardCacheForStudent } from "@/lib/queries/dashboard";
@@ -121,6 +122,7 @@ export async function linkStudentRecord({
   rollNo: string;
   dob: string;
 }): Promise<LinkStudentResult> {
+  const controls = await getAppRuntimeControls();
   const existingLink = await prisma.studentLink.findUnique({
     where: { appUserId: BigInt(appUserId) },
     select: {
@@ -130,7 +132,8 @@ export async function linkStudentRecord({
 
   const studentIdValue = await findStudentIdByRollNo(rollNo);
   const student = studentIdValue === null ? null : { id: studentIdValue };
-  const status = student ? "linked" : "pending_data";
+  const shouldAutoLink = controls.linkingEnabled && student !== null;
+  const status = shouldAutoLink ? "linked" : "pending_data";
   const studentId = student ? BigInt(student.id) : null;
 
   const existingClaim = await prisma.studentLink.findUnique({
@@ -158,13 +161,13 @@ export async function linkStudentRecord({
     where: { appUserId: BigInt(appUserId) },
     create: {
       appUserId: BigInt(appUserId),
-      studentId,
+      studentId: shouldAutoLink ? studentId : null,
       rollNo,
       dob,
       status
     },
     update: {
-      studentId,
+      studentId: shouldAutoLink ? studentId : null,
       rollNo,
       dob,
       status,
@@ -181,13 +184,13 @@ export async function linkStudentRecord({
   const staleCacheStudentId =
     existingLink?.studentId !== null &&
     existingLink?.studentId !== undefined &&
-    Number(existingLink.studentId) !== (student?.id ?? null)
+    Number(existingLink.studentId) !== (shouldAutoLink ? (student?.id ?? null) : null)
       ? Number(existingLink.studentId)
-      : student === null && existingLink?.studentId
+      : !shouldAutoLink && existingLink?.studentId
         ? Number(existingLink.studentId)
         : null;
 
-  if (!student) {
+  if (!shouldAutoLink) {
     const existingPendingRequest = await prisma.dataRequest.findFirst({
       where: {
         appUserId: BigInt(appUserId),
@@ -207,6 +210,13 @@ export async function linkStudentRecord({
         }
       });
     }
+  } else {
+    await prisma.dataRequest.deleteMany({
+      where: {
+        appUserId: BigInt(appUserId),
+        rollNo
+      }
+    });
   }
 
   let message = "Your account is under verification from the admin.";
@@ -214,7 +224,10 @@ export async function linkStudentRecord({
     await deleteDashboardCacheForStudent(staleCacheStudentId);
   }
 
-  if (student) {
+  if (!controls.linkingEnabled) {
+    message =
+      "Your academic details were submitted. Linking is currently disabled, so your profile will stay pending until the admin approves it or re-enables linking.";
+  } else if (student) {
     message = "Academic record linked successfully.";
     await rebuildDashboardCacheForStudent(student.id);
   } else {

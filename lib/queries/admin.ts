@@ -1,7 +1,9 @@
 import "server-only";
 
+import { ensureAppRuntimeControlsSchema } from "@/lib/app-runtime-controls";
 import { MAIN_ADMIN_EMAIL, MAIN_ADMIN_NAME } from "@/lib/admin/constants";
 import { getSql } from "@/lib/db";
+import { ensureStaffAccessSchema, type StaffType } from "@/lib/staff-access";
 
 export type AdminOverview = {
   counts: {
@@ -36,6 +38,9 @@ export type AdminAccountRow = {
   display_name: string | null;
   email_verified: boolean;
   role: "admin";
+  staff_type: StaffType;
+  branch_name: string | null;
+  status: string;
   is_main_admin: boolean;
 };
 
@@ -45,6 +50,7 @@ export type AdminUserRow = {
   display_name: string | null;
   email_verified: boolean;
   role: "student" | "admin";
+  dashboard_access_enabled: boolean;
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
@@ -232,6 +238,7 @@ export async function searchAdminUsers({
   query?: string;
   role?: string;
 }) {
+  await ensureAppRuntimeControlsSchema();
   const sql = getSql();
   const pattern = buildSearchPattern(query);
   const roleFilter = role?.trim() ?? "";
@@ -243,6 +250,7 @@ export async function searchAdminUsers({
       au.display_name,
       au.email_verified,
       au.role,
+      COALESCE(aua.dashboard_access_enabled, TRUE) AS dashboard_access_enabled,
       au.created_at::text,
       au.updated_at::text,
       au.last_login_at::text,
@@ -258,6 +266,7 @@ export async function searchAdminUsers({
       dr.notes AS latest_request_notes,
       dr.dob AS latest_request_dob
     FROM app_users au
+    LEFT JOIN app_user_access aua ON aua.app_user_id = au.id
     LEFT JOIN student_links sl ON sl.app_user_id = au.id
     LEFT JOIN students st ON st.id = sl.student_id
     LEFT JOIN LATERAL (
@@ -281,6 +290,7 @@ export async function searchAdminUsers({
 }
 
 export async function searchAdminAccounts({ query }: { query?: string }) {
+  await ensureStaffAccessSchema();
   const sql = getSql();
   const pattern = buildSearchPattern(query);
 
@@ -294,8 +304,12 @@ export async function searchAdminAccounts({ query }: { query?: string }) {
       END AS display_name,
       au.email_verified,
       au.role,
+      COALESCE(sp.staff_type, CASE WHEN au.email = ${MAIN_ADMIN_EMAIL} THEN 'main_admin' ELSE 'placement_cell' END) AS staff_type,
+      sp.branch_name,
+      COALESCE(sp.status, 'active') AS status,
       (au.email = ${MAIN_ADMIN_EMAIL}) AS is_main_admin
     FROM app_users au
+    LEFT JOIN staff_profiles sp ON sp.app_user_id = au.id
     WHERE au.role = 'admin'
       AND (
         ${!pattern.enabled}
@@ -310,6 +324,19 @@ export async function searchAdminAccounts({ query }: { query?: string }) {
     ORDER BY (au.email = ${MAIN_ADMIN_EMAIL}) DESC, au.updated_at DESC, au.id DESC
     LIMIT 50
   `) as AdminAccountRow[];
+}
+
+export async function getAvailableAdminBranches() {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT DISTINCT branch_name
+    FROM students
+    WHERE branch_name IS NOT NULL
+      AND branch_name <> ''
+    ORDER BY branch_name ASC
+  `) as Array<{ branch_name: string }>;
+
+  return rows.map((row) => row.branch_name);
 }
 
 export async function searchAdminLinks({
@@ -390,19 +417,21 @@ export async function searchAdminDataRequests({
 export async function searchAdminStudents({
   query,
   branch,
+  scopedBranch,
   course,
   page = 1,
   pageSize = 10
 }: {
   query?: string;
   branch?: string;
+  scopedBranch?: string | null;
   course?: string;
   page?: number;
   pageSize?: number;
 }): Promise<AdminStudentSearchResult> {
   const sql = getSql();
   const pattern = buildSearchPattern(query);
-  const branchFilter = branch?.trim() ?? "";
+  const branchFilter = scopedBranch?.trim() || branch?.trim() || "";
   const courseFilter = course?.trim() ?? "";
   const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
   const normalizedPageSize = Math.max(1, Math.min(100, Math.floor(pageSize)));
@@ -416,6 +445,7 @@ export async function searchAdminStudents({
           FROM students
           WHERE branch_name IS NOT NULL
             AND branch_name <> ''
+            AND (${branchFilter} = '' OR COALESCE(branch_name, '') = ${branchFilter})
           ORDER BY branch_name ASC
         ),
         ARRAY[]::text[]
@@ -426,6 +456,7 @@ export async function searchAdminStudents({
           FROM students
           WHERE course_name IS NOT NULL
             AND course_name <> ''
+            AND (${branchFilter} = '' OR COALESCE(branch_name, '') = ${branchFilter})
           ORDER BY course_name ASC
         ),
         ARRAY[]::text[]
@@ -507,6 +538,13 @@ export async function searchAdminStudents({
 }
 
 export async function getAdminStudentDetail(studentId: number): Promise<AdminStudentDetail | null> {
+  return getAdminStudentDetailForScope(studentId, null);
+}
+
+export async function getAdminStudentDetailForScope(
+  studentId: number,
+  scopedBranch: string | null
+): Promise<AdminStudentDetail | null> {
   const sql = getSql();
   const students = (await sql`
     SELECT
@@ -538,6 +576,7 @@ export async function getAdminStudentDetail(studentId: number): Promise<AdminStu
     LEFT JOIN student_links sl ON sl.student_id = s.id
     LEFT JOIN app_users au ON au.id = sl.app_user_id
     WHERE s.id = ${studentId}
+      AND (${scopedBranch ?? ""} = '' OR COALESCE(s.branch_name, '') = ${scopedBranch ?? ""})
     LIMIT 1
   `) as Array<Omit<AdminStudentDetail, "recent_semesters">>;
 

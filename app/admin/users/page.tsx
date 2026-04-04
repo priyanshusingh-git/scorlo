@@ -1,8 +1,15 @@
 import { Suspense } from "react";
-import { AdminDangerButton, AdminDataRequestForm, AdminLinkForm } from "@/components/admin-actions";
+import {
+  AdminDangerButton,
+  AdminDataRequestForm,
+  AdminLinkForm,
+  AdminRuntimeControlsForm,
+  AdminUserDashboardAccessForm
+} from "@/components/admin-actions";
 import { AdminSectionFallback } from "@/components/admin-stream-fallback";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
+import { getAppRuntimeControls } from "@/lib/app-runtime-controls";
 import { requireMainAdminSession } from "@/lib/auth/admin";
 import { searchAdminUsers } from "@/lib/queries/admin";
 
@@ -15,9 +22,14 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const query = typeof params.q === "string" ? params.q : "";
   const usersPromise = searchAdminUsers({ query, role: "student" });
+  const controlsPromise = getAppRuntimeControls();
 
   return (
     <>
+      <Suspense fallback={<AdminSectionFallback title="App controls" description="" rows={2} />}>
+        <AppControlsSection controlsPromise={controlsPromise} />
+      </Suspense>
+
       <SectionBlock title="Search">
         <form className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <input
@@ -35,6 +47,35 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
         <UpdatedUsersList usersPromise={usersPromise} />
       </Suspense>
     </>
+  );
+}
+
+async function AppControlsSection({
+  controlsPromise
+}: {
+  controlsPromise: ReturnType<typeof getAppRuntimeControls>;
+}) {
+  const controls = await controlsPromise;
+
+  return (
+    <SectionBlock
+      title="App controls"
+      description="Control registrations, automatic linking, and manual review flow from here."
+    >
+      <div className="mb-4 flex flex-wrap gap-2">
+        <StatusBadge tone={controls.signupsEnabled ? "success" : "danger"}>
+          Signups {controls.signupsEnabled ? "enabled" : "disabled"}
+        </StatusBadge>
+        <StatusBadge tone={controls.linkingEnabled ? "success" : "warning"}>
+          Linking {controls.linkingEnabled ? "enabled" : "pending approval"}
+        </StatusBadge>
+      </div>
+
+      <AdminRuntimeControlsForm
+        initialSignupsEnabled={controls.signupsEnabled}
+        initialLinkingEnabled={controls.linkingEnabled}
+      />
+    </SectionBlock>
   );
 }
 
@@ -56,6 +97,9 @@ async function UpdatedUsersList({
             <StatusBadge tone={user.email_verified ? "success" : "danger"}>
               {user.email_verified ? "Verified" : "Unverified"}
             </StatusBadge>
+            <StatusBadge tone={user.dashboard_access_enabled ? "success" : "danger"}>
+              {user.dashboard_access_enabled ? "Dashboard enabled" : "Dashboard disabled"}
+            </StatusBadge>
             <StatusBadge tone={user.link_status === "linked" ? "success" : user.link_status === "rejected" ? "danger" : "warning"}>
               {user.link_status ?? "No link"}
             </StatusBadge>
@@ -69,6 +113,11 @@ async function UpdatedUsersList({
                 {user.student_name ?? "No linked student"}
               </div>
             </div>
+
+            <AdminUserDashboardAccessForm
+              userId={user.id}
+              initialEnabled={user.dashboard_access_enabled}
+            />
 
             {user.student_link_id ? (
               <AdminLinkForm

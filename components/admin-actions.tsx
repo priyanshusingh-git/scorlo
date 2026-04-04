@@ -143,42 +143,210 @@ export function AdminDangerButton({
   );
 }
 
-export function AdminCreateAdminForm() {
+export function AdminRuntimeControlsForm({
+  initialSignupsEnabled,
+  initialLinkingEnabled
+}: {
+  initialSignupsEnabled: boolean;
+  initialLinkingEnabled: boolean;
+}) {
+  const [signupsEnabled, setSignupsEnabled] = useState(initialSignupsEnabled);
+  const [linkingEnabled, setLinkingEnabled] = useState(initialLinkingEnabled);
+  const { pending, message, run } = useAdminRequest();
+
+  async function saveControls(next: {
+    signupsEnabled?: boolean;
+    linkingEnabled?: boolean;
+  }) {
+    const success = await run({
+      url: "/api/admin/runtime-controls",
+      method: "PATCH",
+      body: next,
+      successMessage: "Controls updated."
+    });
+
+    if (!success) {
+      setSignupsEnabled(initialSignupsEnabled);
+      setLinkingEnabled(initialLinkingEnabled);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="rounded-[1.2rem] border border-line bg-surface px-4 py-4">
+          <div className="text-sm font-semibold text-ink">New signups</div>
+          <p className="mt-1 text-xs leading-6 text-slate">
+            Stops brand-new student accounts from registering. Existing accounts can still sign in.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={pending || signupsEnabled}
+              onClick={() => {
+                setSignupsEnabled(true);
+                void saveControls({ signupsEnabled: true });
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-success px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              Enable
+            </button>
+            <button
+              type="button"
+              disabled={pending || !signupsEnabled}
+              onClick={() => {
+                setSignupsEnabled(false);
+                void saveControls({ signupsEnabled: false });
+              }}
+              className="inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-sm font-semibold text-danger disabled:opacity-60"
+            >
+              Disable
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-[1.2rem] border border-line bg-surface px-4 py-4">
+          <div className="text-sm font-semibold text-ink">Automatic data linking</div>
+          <p className="mt-1 text-xs leading-6 text-slate">
+            When disabled, DOB and roll submissions stay pending until admin approval. Re-enabling will auto-link matching pending requests.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={pending || linkingEnabled}
+              onClick={() => {
+                setLinkingEnabled(true);
+                void saveControls({ linkingEnabled: true });
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-success px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              Enable
+            </button>
+            <button
+              type="button"
+              disabled={pending || !linkingEnabled}
+              onClick={() => {
+                setLinkingEnabled(false);
+                void saveControls({ linkingEnabled: false });
+              }}
+              className="inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-sm font-semibold text-danger disabled:opacity-60"
+            >
+              Disable
+            </button>
+          </div>
+        </div>
+      </div>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}
+
+export function AdminUserDashboardAccessForm({
+  userId,
+  initialEnabled
+}: {
+  userId: number;
+  initialEnabled: boolean;
+}) {
+  const [enabled, setEnabled] = useState(initialEnabled);
+  const { pending, message, run } = useAdminRequest();
+
+  async function setDashboardAccess(nextEnabled: boolean) {
+    setEnabled(nextEnabled);
+    const success = await run({
+      url: `/api/admin/users/${userId}`,
+      method: "PATCH",
+      body: { dashboardAccessEnabled: nextEnabled },
+      successMessage: nextEnabled ? "Dashboard access enabled." : "Dashboard access disabled."
+    });
+
+    if (!success) {
+      setEnabled(initialEnabled);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={pending || enabled}
+          onClick={() => void setDashboardAccess(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-success px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          Enable dashboard
+        </button>
+        <button
+          type="button"
+          disabled={pending || !enabled}
+          onClick={() => void setDashboardAccess(false)}
+          className="inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-danger-soft px-3 py-2 text-sm font-semibold text-danger disabled:opacity-60"
+        >
+          Disable dashboard
+        </button>
+      </div>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}
+
+export function AdminCreateAdminForm({
+  actorType,
+  actorBranchName,
+  availableBranches
+}: {
+  actorType: "main_admin" | "hod";
+  actorBranchName: string | null;
+  availableBranches: string[];
+}) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [staffType, setStaffType] = useState<"hod" | "teacher" | "placement_cell">(
+    actorType === "hod" ? "teacher" : "teacher"
+  );
+  const [branchName, setBranchName] = useState(actorType === "hod" ? actorBranchName ?? "" : "");
   const { pending, message, run } = useAdminRequest();
+  const branchLocked = actorType === "hod";
 
   async function handleCreate() {
     const success = await run({
       url: "/api/admin/admins",
       method: "POST",
-      body: { name, email, password },
-      successMessage: "Admin account created."
+      body: {
+        name,
+        email,
+        password,
+        staffType,
+        branchName: branchLocked ? actorBranchName : branchName
+      },
+      successMessage: "Staff account created."
     });
 
     if (success) {
       setName("");
       setEmail("");
       setPassword("");
+      setStaffType(actorType === "hod" ? "teacher" : "teacher");
+      setBranchName(actorType === "hod" ? actorBranchName ?? "" : "");
     }
   }
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
         <input
           value={name}
           onChange={(event) => setName(event.target.value)}
           className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
-          placeholder="Admin name"
+          placeholder="Staff name"
           disabled={pending}
         />
         <input
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
-          placeholder="admin@scorlo.in"
+          placeholder="staff@glbitm.ac.in"
           disabled={pending}
         />
         <input
@@ -189,6 +357,35 @@ export function AdminCreateAdminForm() {
           placeholder="Temporary password"
           disabled={pending}
         />
+        <select
+          value={staffType}
+          onChange={(event) => {
+            const nextType = event.target.value as "hod" | "teacher" | "placement_cell";
+            setStaffType(nextType);
+            if (nextType === "placement_cell" && !branchLocked) {
+              setBranchName("");
+            }
+          }}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          disabled={pending || actorType === "hod"}
+        >
+          {actorType === "main_admin" ? <option value="hod">HOD</option> : null}
+          <option value="teacher">Teacher</option>
+          {actorType === "main_admin" ? <option value="placement_cell">Placement cell</option> : null}
+        </select>
+        <select
+          value={branchLocked ? actorBranchName ?? "" : branchName}
+          onChange={(event) => setBranchName(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          disabled={pending || branchLocked || staffType === "placement_cell"}
+        >
+          <option value="">{staffType === "placement_cell" ? "No branch scope" : "Select branch"}</option>
+          {availableBranches.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
       </div>
       <button
         type="button"
@@ -197,7 +394,88 @@ export function AdminCreateAdminForm() {
         className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
       >
         {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-        <span>{pending ? "Creating..." : "Create admin"}</span>
+        <span>{pending ? "Creating..." : actorType === "hod" ? "Create teacher" : "Create staff account"}</span>
+      </button>
+      {message ? <p className="text-xs text-slate">{message}</p> : null}
+    </div>
+  );
+}
+
+export function AdminStaffProfileForm({
+  userId,
+  initialStaffType,
+  initialBranchName,
+  initialStatus,
+  availableBranches
+}: {
+  userId: number;
+  initialStaffType: "hod" | "teacher" | "placement_cell";
+  initialBranchName: string | null;
+  initialStatus: "active" | "suspended";
+  availableBranches: string[];
+}) {
+  const [staffType, setStaffType] = useState(initialStaffType);
+  const [branchName, setBranchName] = useState(initialBranchName ?? "");
+  const [status, setStatus] = useState(initialStatus);
+  const { pending, message, run } = useAdminRequest();
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+        <select
+          value={staffType}
+          onChange={(event) => {
+            const nextType = event.target.value as "hod" | "teacher" | "placement_cell";
+            setStaffType(nextType);
+            if (nextType === "placement_cell") {
+              setBranchName("");
+            }
+          }}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          disabled={pending}
+        >
+          <option value="hod">HOD</option>
+          <option value="teacher">Teacher</option>
+          <option value="placement_cell">Placement cell</option>
+        </select>
+        <select
+          value={branchName}
+          onChange={(event) => setBranchName(event.target.value)}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          disabled={pending || staffType === "placement_cell"}
+        >
+          <option value="">{staffType === "placement_cell" ? "No branch scope" : "Select branch"}</option>
+          {availableBranches.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        <select
+          value={status}
+          onChange={(event) => setStatus(event.target.value as "active" | "suspended")}
+          className="rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+          disabled={pending}
+        >
+          <option value="active">active</option>
+          <option value="suspended">suspended</option>
+        </select>
+      </div>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          run({
+            url: `/api/admin/admins/${userId}`,
+            method: "PATCH",
+            body: { staffType, branchName, status },
+            successMessage: "Staff profile updated."
+          })
+        }
+        className="inline-flex items-center gap-2 rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+      >
+        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+        <span>{pending ? "Saving..." : "Save staff access"}</span>
       </button>
       {message ? <p className="text-xs text-slate">{message}</p> : null}
     </div>

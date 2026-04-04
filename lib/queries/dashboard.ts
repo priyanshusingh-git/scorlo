@@ -133,7 +133,7 @@ type CacheRow = {
  * Bump this version whenever the shape of `StudentAppSnapshot` changes.
  * Cached blobs that don't match will be treated as a cache miss and rebuilt.
  */
-const SNAPSHOT_VERSION = 5;
+const SNAPSHOT_VERSION = 6;
 
 let cacheSchemaPromise: Promise<void> | null = null;
 
@@ -199,8 +199,16 @@ function getEffectiveCarrySubjects(
   subjects: Array<{ code: string | null; grade: string | null }>
 ) {
   const graceSubjectCodes = getGraceSubjectCodes(subjects);
+  const semesterSubjectCodes = new Set(
+    subjects
+      .filter((subject) => subject.code)
+      .map((subject) => subject.code!.trim().toUpperCase())
+  );
 
-  return copSubjects.filter((code) => !graceSubjectCodes.has(code.trim().toUpperCase()));
+  return copSubjects.filter((code) => {
+    const normalizedCode = code.trim().toUpperCase();
+    return semesterSubjectCodes.has(normalizedCode) && !graceSubjectCodes.has(normalizedCode);
+  });
 }
 
 function getSubjectStatus(subject: SubjectRow, copSubjects: string[]) {
@@ -447,7 +455,7 @@ function buildResultsSummary(dashboard: DashboardPayload) {
   return {
     latest_declaration: latestSemester?.date_of_declaration ?? "Declaration date unavailable",
     latest_semester_label: latestSemester ? `Semester ${latestSemester.semester_no}` : "No semester",
-    latest_status: latestSemester?.result_status ?? "Unknown",
+    latest_status: latestSemester?.status_badge_label ?? "Unknown",
     best_semester_label: bestSemester ? `Semester ${bestSemester.semester_no}` : "Not available"
   };
 }
@@ -761,7 +769,7 @@ function buildHomeView(dashboard: DashboardPayload) {
     standing: {
       trend_note: getTrendNote(dashboard),
       best_semester_label: bestSemester ? `Semester ${bestSemester.semester_no}` : "Not available",
-      latest_status_label: latestSemester?.result_status ?? "Unknown",
+      latest_status_label: latestSemester?.status_badge_label ?? "Unknown",
       latest_result_label: latestSemester
         ? `Latest result: Semester ${latestSemester.semester_no}`
         : "No semester result yet",
@@ -801,6 +809,10 @@ export async function rebuildDashboardCacheForStudent(studentId: number) {
   return payload;
 }
 
+export async function refreshDashboardCacheForStudent(studentId: number) {
+  return rebuildDashboardCacheForStudent(studentId);
+}
+
 export async function rebuildDashboardCachesForLinkedStudents() {
   await ensureSnapshotCacheTable();
   const sql = getSql();
@@ -824,6 +836,10 @@ export async function rebuildDashboardCachesForLinkedStudents() {
     rebuiltStudents: rebuilt,
     linkedStudents: linkedRows.length
   };
+}
+
+export async function refreshDashboardCachesForLinkedStudents() {
+  return rebuildDashboardCachesForLinkedStudents();
 }
 
 export async function getStudentAppSnapshot(studentId: number): Promise<StudentAppSnapshot | null> {

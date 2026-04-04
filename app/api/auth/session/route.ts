@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { getServerEnv } from "@/lib/env";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
-import { ensureAppUserForSession } from "@/lib/queries/app-users";
+import { ensureAppUserForSession, SignupsDisabledError } from "@/lib/queries/app-users";
+import { getStaffProfileForAppUser } from "@/lib/staff-access";
 import { getSessionCookieCleanupNames, getSessionCookieName } from "@/lib/session-cookie";
 import { rateLimit } from "@/lib/rate-limiter";
 
@@ -113,19 +114,42 @@ export async function POST(request: Request) {
       );
     }
 
+    const appUser = await ensureAppUserForSession(decoded);
+    logAuthDebug("app_user_upserted", {
+      uid: decoded.uid,
+      appUserId: appUser?.id ?? null,
+      email: appUser?.email ?? null
+    });
+
+    if (appUser.role === "student" && !appUser.dashboard_access_enabled) {
+      return NextResponse.json(
+        {
+          error: "dashboard_access_disabled",
+          message: "Your dashboard access has been disabled by the admin."
+        },
+        { status: 403, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    if (appUser.role === "admin") {
+      const staffProfile = await getStaffProfileForAppUser(appUser);
+      if (!staffProfile || staffProfile.status !== "active") {
+        return NextResponse.json(
+          {
+            error: "admin_access_disabled",
+            message: "Your admin access is inactive. Contact the main admin."
+          },
+          { status: 403, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+    }
+
     const expiresIn = 1000 * 60 * 60 * 24 * 5;
     const sessionCookie = await auth.createSessionCookie(body.idToken, { expiresIn });
     logAuthDebug("session_cookie_created", {
       uid: decoded.uid,
       cookieName: sessionCookieName,
       expiresInSeconds: expiresIn / 1000
-    });
-
-    const appUser = await ensureAppUserForSession(decoded);
-    logAuthDebug("app_user_upserted", {
-      uid: decoded.uid,
-      appUserId: appUser?.id ?? null,
-      email: appUser?.email ?? null
     });
 
     const cookieStore = await cookies();
@@ -163,6 +187,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "invalid_token", message: "Authentication expired. Please sign in again." },
         { status: 401, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    if (error instanceof SignupsDisabledError) {
+      return NextResponse.json(
+        { error: "signups_disabled", message: error.message },
+        { status: 403, headers: { "Cache-Control": "no-store" } }
       );
     }
 

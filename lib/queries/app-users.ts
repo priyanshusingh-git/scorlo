@@ -2,6 +2,7 @@ import "server-only";
 
 import type { DecodedIdToken } from "firebase-admin/auth";
 import { MAIN_ADMIN_NAME, isMainAdminEmail } from "@/lib/admin/constants";
+import { getAppRuntimeControls, getUserDashboardAccessEnabled } from "@/lib/app-runtime-controls";
 import { prisma } from "@/lib/prisma";
 
 export type AppUser = {
@@ -14,7 +15,15 @@ export type AppUser = {
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
+  dashboard_access_enabled: boolean;
 };
+
+export class SignupsDisabledError extends Error {
+  constructor() {
+    super("New signups are currently disabled by the admin.");
+    this.name = "SignupsDisabledError";
+  }
+}
 
 function toAppUser(user: {
   id: bigint;
@@ -26,7 +35,7 @@ function toAppUser(user: {
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt: Date | null;
-}): AppUser {
+}, dashboardAccessEnabled: boolean): AppUser {
   return {
     id: Number(user.id),
     firebase_uid: user.firebaseUid,
@@ -36,7 +45,8 @@ function toAppUser(user: {
     role: user.role as AppUser["role"],
     created_at: user.createdAt.toISOString(),
     updated_at: user.updatedAt.toISOString(),
-    last_login_at: user.lastLoginAt?.toISOString() ?? null
+    last_login_at: user.lastLoginAt?.toISOString() ?? null,
+    dashboard_access_enabled: dashboardAccessEnabled
   };
 }
 
@@ -54,6 +64,7 @@ export async function ensureAppUserForSession(decoded: DecodedIdToken) {
   });
 
   if (existingUser) {
+    const dashboardAccessEnabled = await getUserDashboardAccessEnabled(existingUser.id);
     const lastLogin = existingUser.lastLoginAt;
     // Only update login timestamp if it's been more than 1 hour or critical data changed
       const needsUpdate =
@@ -74,10 +85,16 @@ export async function ensureAppUserForSession(decoded: DecodedIdToken) {
           updatedAt: now
         }
       });
-      return toAppUser(updatedUser);
+      return toAppUser(updatedUser, dashboardAccessEnabled);
     }
 
-    return toAppUser(existingUser);
+    return toAppUser(existingUser, dashboardAccessEnabled);
+  }
+
+  const controls = await getAppRuntimeControls();
+
+  if (!controls.signupsEnabled && !isMainAdmin) {
+    throw new SignupsDisabledError();
   }
 
   // Fallback to creation if not found
@@ -92,5 +109,5 @@ export async function ensureAppUserForSession(decoded: DecodedIdToken) {
     }
   });
 
-  return toAppUser(newUser);
+  return toAppUser(newUser, true);
 }

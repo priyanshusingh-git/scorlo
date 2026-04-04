@@ -47,5 +47,9 @@ export async function requireStudentSession() {
     redirect("/admin");
   }
 
+  if (!user.dashboard_access_enabled) {
+    redirect("/login?reason=dashboard-disabled");
+  }
+
   return user;
 }

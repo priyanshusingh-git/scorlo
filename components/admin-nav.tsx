@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getAdminNavItems } from "@/lib/admin-nav-items";
+import type { StaffType } from "@/lib/staff-access";
 import { cn } from "@/lib/utils";
 
-export function AdminDesktopNav({ isMainAdmin }: { isMainAdmin: boolean }) {
+export function AdminDesktopNav({ staffType }: { staffType: StaffType }) {
   const pathname = usePathname();
-  const items = getAdminNavItems(isMainAdmin);
+  const items = getAdminNavItems(staffType);
 
   return (
     <nav className="hidden lg:flex lg:flex-col lg:gap-2">

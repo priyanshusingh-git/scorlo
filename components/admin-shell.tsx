@@ -4,16 +4,16 @@ import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { LogoutButton } from "@/components/logout-button";
 import { MobileTopBar } from "@/components/mobile-top-bar";
 import { ProtectedSessionGuard } from "@/components/protected-session-guard";
-import { isMainAdminUser } from "@/lib/auth/admin";
-import { getCurrentSessionUser } from "@/lib/auth/session";
+import { getCurrentAdminSessionUser, isMainAdminUser } from "@/lib/auth/admin";
 
 export async function AdminShell({
   children
 }: {
   children: React.ReactNode;
 }) {
-  const admin = await getCurrentSessionUser();
-  const isMainAdmin = admin?.role === "admin" && isMainAdminUser(admin);
+  const admin = await getCurrentAdminSessionUser();
+  const isMainAdmin = admin ? isMainAdminUser(admin) : false;
+  const staffType = admin?.staff_profile.staff_type ?? "placement_cell";
 
   return (
     <div className="page-shell min-h-screen w-full px-4 pb-28 pt-20 sm:px-6 sm:pt-20 lg:px-8 lg:pb-10 lg:pt-8 2xl:px-10">
@@ -37,7 +37,7 @@ export async function AdminShell({
               </span>
             </div>
             <div className="mt-8 flex-1">
-              <AdminDesktopNav isMainAdmin={isMainAdmin} />
+              <AdminDesktopNav staffType={staffType} />
             </div>
             <LogoutButton className="mt-5 inline-flex items-center gap-2 rounded-[1rem] border border-white/10 bg-white/8 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/12 disabled:opacity-60" />
           </div>
@@ -48,7 +48,7 @@ export async function AdminShell({
         </div>
       </div>
       <InstallAppPrompt />
-      <AdminBottomNav isMainAdmin={isMainAdmin} />
+      <AdminBottomNav staffType={staffType} />
     </div>
   );
 }

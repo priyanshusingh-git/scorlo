@@ -33,6 +33,13 @@ export type AdminSupportIssueRow = StudentSupportIssueRow & {
   student_name: string | null;
 };
 
+export type SupportIssueListResult<TIssue> = {
+  rows: TIssue[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+};
+
 let supportSchemaPromise: Promise<void> | null = null;
 
 async function ensureSupportIssuesTable() {
@@ -125,8 +132,16 @@ export async function createSupportIssue({
 export async function listSupportIssuesForStudent(appUserId: number) {
   await ensureSupportIssuesTable();
   const sql = getSql();
+  const page = 1;
+  const pageSize = 20;
 
-  return (await sql`
+  const totalRows = (await sql`
+    SELECT COUNT(*)::int AS total
+    FROM support_issues
+    WHERE app_user_id = ${appUserId}
+  `) as Array<{ total: number }>;
+
+  const rows = (await sql`
     SELECT
       id::int,
       issue_type,
@@ -142,15 +157,85 @@ export async function listSupportIssuesForStudent(appUserId: number) {
     FROM support_issues
     WHERE app_user_id = ${appUserId}
     ORDER BY created_at DESC, id DESC
-    LIMIT 20
+    LIMIT ${pageSize}
   `) as StudentSupportIssueRow[];
+
+  return {
+    rows,
+    totalCount: totalRows[0]?.total ?? 0,
+    page,
+    pageSize
+  } satisfies SupportIssueListResult<StudentSupportIssueRow>;
 }
 
-export async function listSupportIssuesForAdmin() {
+export async function listSupportIssuesForStudentPaginated({
+  appUserId,
+  page = 1,
+  pageSize = 10
+}: {
+  appUserId: number;
+  page?: number;
+  pageSize?: number;
+}) {
   await ensureSupportIssuesTable();
   const sql = getSql();
+  const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
+  const normalizedPageSize = Math.max(1, Math.min(50, Math.floor(pageSize)));
+  const offset = (normalizedPage - 1) * normalizedPageSize;
 
-  return (await sql`
+  const totalRows = (await sql`
+    SELECT COUNT(*)::int AS total
+    FROM support_issues
+    WHERE app_user_id = ${appUserId}
+  `) as Array<{ total: number }>;
+
+  const rows = (await sql`
+    SELECT
+      id::int,
+      issue_type,
+      title,
+      description,
+      roll_no,
+      link_status,
+      status,
+      admin_notes,
+      created_at::text,
+      updated_at::text,
+      resolved_at::text
+    FROM support_issues
+    WHERE app_user_id = ${appUserId}
+    ORDER BY created_at DESC, id DESC
+    LIMIT ${normalizedPageSize}
+    OFFSET ${offset}
+  `) as StudentSupportIssueRow[];
+
+  return {
+    rows,
+    totalCount: totalRows[0]?.total ?? 0,
+    page: normalizedPage,
+    pageSize: normalizedPageSize
+  } satisfies SupportIssueListResult<StudentSupportIssueRow>;
+}
+
+export async function listSupportIssuesForAdmin({
+  page = 1,
+  pageSize = 10
+}: {
+  page?: number;
+  pageSize?: number;
+} = {}) {
+  await ensureSupportIssuesTable();
+  const sql = getSql();
+  const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
+  const normalizedPageSize = Math.max(1, Math.min(50, Math.floor(pageSize)));
+  const offset = (normalizedPage - 1) * normalizedPageSize;
+
+  const totalRows = (await sql`
+    SELECT COUNT(*)::int AS total
+    FROM support_issues
+  `) as Array<{ total: number }>;
+
+  const rows = (await sql`
     SELECT
       si.id::int,
       si.app_user_id::int,
@@ -180,8 +265,16 @@ export async function listSupportIssuesForAdmin() {
       END,
       si.created_at DESC,
       si.id DESC
-    LIMIT 50
+    LIMIT ${normalizedPageSize}
+    OFFSET ${offset}
   `) as AdminSupportIssueRow[];
+
+  return {
+    rows,
+    totalCount: totalRows[0]?.total ?? 0,
+    page: normalizedPage,
+    pageSize: normalizedPageSize
+  } satisfies SupportIssueListResult<AdminSupportIssueRow>;
 }
 
 export async function updateSupportIssueForAdmin({

@@ -3,10 +3,17 @@ import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Prisma, PrismaClient } from "@prisma/client";
+import { ensureAppRuntimeControlsSchema } from "@/lib/app-runtime-controls";
 import { MAIN_ADMIN_EMAIL, MAIN_ADMIN_NAME, isMainAdminEmail } from "@/lib/admin/constants";
 import { getSql } from "@/lib/db";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { prisma } from "@/lib/prisma";
+import {
+  canCreateStaffType,
+  ensureStaffAccessSchema,
+  getStaffProfileByUserId,
+  type StaffType
+} from "@/lib/staff-access";
 import {
   clearAllDashboardCaches,
   countDashboardCacheRows,
@@ -73,6 +80,62 @@ async function getActingAdmin(tx: Prisma.TransactionClient | PrismaClient, admin
 
 function canManageAdminAccounts(admin: { email: string }) {
   return isMainAdminEmail(admin.email);
+}
+
+function isAllowedStaffEmail(email: string) {
+  return email.endsWith("@glbitm.ac.in") || email.endsWith("@scorlo.in");
+}
+
+async function upsertStaffProfileRecord(
+  tx: Prisma.TransactionClient | PrismaClient,
+  input: {
+    appUserId: number;
+    staffType: StaffType;
+    branchName?: string | null;
+    status?: "active" | "suspended";
+    createdByUserId?: number | null;
+  }
+) {
+  const rows = await tx.$queryRaw<Array<{
+    app_user_id: bigint;
+    staff_type: string;
+    branch_name: string | null;
+    status: string;
+    created_by_user_id: bigint | null;
+    created_at: Date;
+    updated_at: Date;
+  }>>`
+    INSERT INTO staff_profiles (
+      app_user_id,
+      staff_type,
+      branch_name,
+      status,
+      created_by_user_id
+    )
+    VALUES (
+      ${BigInt(input.appUserId)},
+      ${input.staffType},
+      ${input.branchName ?? null},
+      ${input.status ?? "active"},
+      ${input.createdByUserId ? BigInt(input.createdByUserId) : null}
+    )
+    ON CONFLICT (app_user_id)
+    DO UPDATE SET
+      staff_type = EXCLUDED.staff_type,
+      branch_name = EXCLUDED.branch_name,
+      status = EXCLUDED.status,
+      updated_at = NOW()
+    RETURNING
+      app_user_id,
+      staff_type,
+      branch_name,
+      status,
+      created_by_user_id,
+      created_at,
+      updated_at
+  `;
+
+  return rows[0];
 }
 
 async function ensurePendingRequest(
@@ -242,35 +305,256 @@ export async function updateUserRole(
   });
 }
 
-export async function createAdminAccount(
+export async function updateUserDashboardAccess(
+  adminUserId: number,
+  targetUserId: number,
+  dashboardAccessEnabled: boolean
+) {
+  await ensureAppRuntimeControlsSchema();
+
+  return prisma.$transaction(async (tx) => {
+    const targetUser = await tx.appUser.findUnique({
+      where: { id: BigInt(targetUserId) }
+    });
+
+    if (!targetUser) {
+      throw new Error("User not found.");
+    }
+
+    if (targetUser.role !== "student") {
+      throw new Error("Dashboard access can only be changed for student accounts.");
+    }
+
+    const existingAccessRows = await tx.$queryRaw<Array<{
+      app_user_id: bigint;
+      dashboard_access_enabled: boolean;
+      created_at: Date;
+      updated_at: Date;
+    }>>`
+      SELECT app_user_id, dashboard_access_enabled, created_at, updated_at
+      FROM app_user_access
+      WHERE app_user_id = ${targetUser.id}
+      LIMIT 1
+    `;
+
+    const updatedAccessRows = await tx.$queryRaw<Array<{
+      app_user_id: bigint;
+      dashboard_access_enabled: boolean;
+      created_at: Date;
+      updated_at: Date;
+    }>>`
+      INSERT INTO app_user_access (app_user_id, dashboard_access_enabled)
+      VALUES (${targetUser.id}, ${dashboardAccessEnabled})
+      ON CONFLICT (app_user_id)
+      DO UPDATE SET
+        dashboard_access_enabled = EXCLUDED.dashboard_access_enabled,
+        updated_at = NOW()
+      RETURNING app_user_id, dashboard_access_enabled, created_at, updated_at
+    `;
+    const existingAccess = existingAccessRows[0] ?? null;
+    const updatedAccess = updatedAccessRows[0];
+
+    await logAdminAudit(tx, {
+      adminUserId,
+      actionKey: "app_user_access.update",
+      targetTable: "app_user_access",
+      targetId: targetUserId,
+      beforeJson: existingAccess ?? {
+        app_user_id: targetUserId,
+        dashboard_access_enabled: true
+      },
+      afterJson: updatedAccess
+    });
+
+    return updatedAccess;
+  });
+}
+
+async function autoApprovePendingDataRequests(adminUserId: number) {
+  const result = await prisma.$transaction(async (tx) => {
+    const pendingRequests = await tx.dataRequest.findMany({
+      where: { status: "pending" },
+      orderBy: [{ updatedAt: "asc" }, { id: "asc" }]
+    });
+
+    const cacheStudentIds = new Set<number>();
+    const staleCacheStudentIds = new Set<number>();
+    let approvedCount = 0;
+
+    for (const request of pendingRequests) {
+      const student = await resolveStudentByRollNo(tx, request.rollNo);
+      if (!student) {
+        continue;
+      }
+
+      const linkedResult = await assignStudentToUser(tx, {
+        appUserId: request.appUserId,
+        studentId: student.id,
+        rollNo: request.rollNo,
+        dob: request.dob,
+        preserveDataRequestId: request.id
+      });
+
+      await tx.dataRequest.update({
+        where: { id: request.id },
+        data: {
+          status: "approved",
+          updatedAt: new Date()
+        }
+      });
+
+      approvedCount += 1;
+      cacheStudentIds.add(Number(student.id));
+
+      if (linkedResult.previousStudentId !== null) {
+        staleCacheStudentIds.add(linkedResult.previousStudentId);
+      }
+    }
+
+    return {
+      approvedCount,
+      pendingCount: pendingRequests.length - approvedCount,
+      cacheStudentIds: Array.from(cacheStudentIds),
+      staleCacheStudentIds: Array.from(staleCacheStudentIds)
+    };
+  });
+
+  for (const staleStudentId of result.staleCacheStudentIds) {
+    if (!result.cacheStudentIds.includes(staleStudentId)) {
+      await deleteDashboardCacheForStudent(staleStudentId);
+    }
+  }
+
+  for (const studentId of result.cacheStudentIds) {
+    await rebuildDashboardCacheForStudent(studentId);
+  }
+
+  await logAdminAudit(prisma, {
+    adminUserId,
+    actionKey: "app_runtime_settings.auto_link_pending",
+    targetTable: "data_requests",
+    targetId: "pending",
+    beforeJson: null,
+    afterJson: {
+      approved_count: result.approvedCount,
+      still_pending_count: result.pendingCount
+    }
+  });
+
+  return result;
+}
+
+export async function updateAppRuntimeSettings(
+  adminUserId: number,
+  input: {
+    signupsEnabled?: boolean;
+    linkingEnabled?: boolean;
+  }
+) {
+  await ensureAppRuntimeControlsSchema();
+
+  const result = await prisma.$transaction(async (tx) => {
+    const existingRows = await tx.$queryRaw<Array<{
+      id: number;
+      signups_enabled: boolean;
+      linking_enabled: boolean;
+      created_at: Date;
+      updated_at: Date;
+    }>>`
+      SELECT id, signups_enabled, linking_enabled, created_at, updated_at
+      FROM app_runtime_settings
+      WHERE id = 1
+      LIMIT 1
+    `;
+    const existing = existingRows[0];
+
+    const nextSettingsRows = await tx.$queryRaw<Array<{
+      id: number;
+      signups_enabled: boolean;
+      linking_enabled: boolean;
+      created_at: Date;
+      updated_at: Date;
+    }>>`
+      UPDATE app_runtime_settings
+      SET
+        signups_enabled = ${input.signupsEnabled ?? existing.signups_enabled},
+        linking_enabled = ${input.linkingEnabled ?? existing.linking_enabled},
+        updated_at = NOW()
+      WHERE id = 1
+      RETURNING id, signups_enabled, linking_enabled, created_at, updated_at
+    `;
+    const nextSettings = nextSettingsRows[0];
+
+    await logAdminAudit(tx, {
+      adminUserId,
+      actionKey: "app_runtime_settings.update",
+      targetTable: "app_runtime_settings",
+      targetId: 1,
+      beforeJson: existing,
+      afterJson: nextSettings
+    });
+
+    return {
+      before: existing,
+      after: nextSettings
+    };
+  });
+
+  const relinkSummary =
+    result.before.linking_enabled === false && result.after.linking_enabled === true
+      ? await autoApprovePendingDataRequests(adminUserId)
+      : null;
+
+  return {
+    settings: result.after,
+    relinkSummary
+  };
+}
+
+export async function createStaffAccount(
   adminUserId: number,
   input: {
     name: string;
     email: string;
     password: string;
+    staffType: StaffType;
+    branchName?: string | null;
   }
 ) {
+  await ensureStaffAccessSchema();
+
   const actingAdmin = await prisma.appUser.findUnique({
     where: { id: BigInt(adminUserId) }
   });
+  const actingStaffProfile = await getStaffProfileByUserId(adminUserId);
 
-  if (!actingAdmin || actingAdmin.role !== "admin") {
+  if (!actingAdmin || actingAdmin.role !== "admin" || !actingStaffProfile) {
     throw new Error("Admin account not found.");
   }
 
-  if (!canManageAdminAccounts(actingAdmin)) {
-    throw new Error("Only the main admin can create admin accounts.");
+  if (!canCreateStaffType({ staff_profile: actingStaffProfile }, input.staffType)) {
+    throw new Error("You are not allowed to create this type of staff account.");
   }
 
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
+  const normalizedBranchName =
+    input.staffType === "placement_cell"
+      ? null
+      : actingStaffProfile.staff_type === "hod"
+        ? actingStaffProfile.branch_name
+        : input.branchName?.trim() || null;
 
   if (!name) {
-    throw new Error("Admin name is required.");
+    throw new Error("Staff name is required.");
   }
 
-  if (!email.endsWith("@scorlo.in")) {
-    throw new Error("Admin accounts must use a @scorlo.in email.");
+  if (!isAllowedStaffEmail(email)) {
+    throw new Error("Staff accounts must use an approved institutional email.");
+  }
+
+  if ((input.staffType === "hod" || input.staffType === "teacher") && !normalizedBranchName) {
+    throw new Error("A branch is required for HOD and teacher accounts.");
   }
 
   const existingAppUser = await prisma.appUser.findUnique({
@@ -292,7 +576,7 @@ export async function createAdminAccount(
 
   try {
     const created = await prisma.$transaction(async (tx) => {
-      const adminUser = await tx.appUser.create({
+      const staffUser = await tx.appUser.create({
         data: {
           firebaseUid: firebaseUser.uid,
           email,
@@ -302,16 +586,30 @@ export async function createAdminAccount(
         }
       });
 
-      await logAdminAudit(tx, {
-        adminUserId,
-        actionKey: "admins.create",
-        targetTable: "app_users",
-        targetId: adminUser.id.toString(),
-        beforeJson: null,
-        afterJson: adminUser
+      const staffProfile = await upsertStaffProfileRecord(tx, {
+        appUserId: Number(staffUser.id),
+        staffType: input.staffType,
+        branchName: normalizedBranchName,
+        status: "active",
+        createdByUserId: adminUserId
       });
 
-      return adminUser;
+      await logAdminAudit(tx, {
+        adminUserId,
+        actionKey: "staff.create",
+        targetTable: "app_users",
+        targetId: staffUser.id.toString(),
+        beforeJson: null,
+        afterJson: {
+          app_user: staffUser,
+          staff_profile: staffProfile
+        }
+      });
+
+      return {
+        staffUser,
+        staffProfile
+      };
     });
 
     return created;
@@ -319,6 +617,75 @@ export async function createAdminAccount(
     await auth.deleteUser(firebaseUser.uid).catch(() => undefined);
     throw error;
   }
+}
+
+export async function updateStaffProfile(
+  adminUserId: number,
+  targetUserId: number,
+  input: {
+    staffType: StaffType;
+    branchName?: string | null;
+    status?: "active" | "suspended";
+  }
+) {
+  await ensureStaffAccessSchema();
+  const actingStaffProfile = await getStaffProfileByUserId(adminUserId);
+
+  if (!actingStaffProfile || actingStaffProfile.staff_type !== "main_admin") {
+    throw new Error("Only the main admin can update staff access.");
+  }
+
+  const targetUser = await prisma.appUser.findUnique({
+    where: { id: BigInt(targetUserId) }
+  });
+
+  if (!targetUser || targetUser.role !== "admin") {
+    throw new Error("Staff account not found.");
+  }
+
+  if (isMainAdminEmail(targetUser.email)) {
+    throw new Error("The main admin profile cannot be changed.");
+  }
+
+  if ((input.staffType === "hod" || input.staffType === "teacher") && !input.branchName?.trim()) {
+    throw new Error("A branch is required for HOD and teacher accounts.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const beforeProfile = await tx.$queryRaw<Array<{
+      app_user_id: bigint;
+      staff_type: string;
+      branch_name: string | null;
+      status: string;
+      created_by_user_id: bigint | null;
+      created_at: Date;
+      updated_at: Date;
+    }>>`
+      SELECT app_user_id, staff_type, branch_name, status, created_by_user_id, created_at, updated_at
+      FROM staff_profiles
+      WHERE app_user_id = ${BigInt(targetUserId)}
+      LIMIT 1
+    `;
+
+    const updatedProfile = await upsertStaffProfileRecord(tx, {
+      appUserId: targetUserId,
+      staffType: input.staffType,
+      branchName: input.staffType === "placement_cell" ? null : input.branchName?.trim() || null,
+      status: input.status ?? "active",
+      createdByUserId: beforeProfile[0]?.created_by_user_id ? Number(beforeProfile[0].created_by_user_id) : adminUserId
+    });
+
+    await logAdminAudit(tx, {
+      adminUserId,
+      actionKey: "staff.update",
+      targetTable: "staff_profiles",
+      targetId: targetUserId,
+      beforeJson: beforeProfile[0] ?? null,
+      afterJson: updatedProfile
+    });
+
+    return updatedProfile;
+  });
 }
 
 export async function deleteUserAccount(adminUserId: number, targetUserId: number) {

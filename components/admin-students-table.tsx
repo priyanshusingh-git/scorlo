@@ -246,17 +246,24 @@ export function AdminStudentsTable() {
             <table className="min-w-full divide-y divide-line bg-surface text-sm">
               <thead className="bg-app/80">
                 <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-mist">
-                  <th className="px-4 py-3">Rank</th>
+                  <th className="px-4 py-3">S. No.</th>
                   <th className="px-4 py-3">Student</th>
+                  <th className="px-4 py-3">Rank</th>
                   <th className="px-4 py-3">Branch</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {rows.length > 0 ? (
-                  rows.map((student) => <AdminStudentTableRow key={student.id} student={student} />)
+                  rows.map((student, index) => (
+                    <AdminStudentTableRow
+                      key={student.id}
+                      serialNumber={(currentPage - 1) * currentPageSize + index + 1}
+                      student={student}
+                    />
+                  ))
                 ) : (
                   <tr>
-                    <td colSpan={3} className="px-4 py-6 text-sm text-slate">
+                    <td colSpan={4} className="px-4 py-6 text-sm text-slate">
                       {pending ? "Loading..." : "No student records matched the search."}
                     </td>
                   </tr>

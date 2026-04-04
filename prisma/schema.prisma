@@ -16,6 +16,7 @@ model AppUser {
   createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
   lastLoginAt   DateTime?     @map("last_login_at") @db.Timestamptz(6)
+  accessControl AppUserAccess?
   dataRequests  DataRequest[]
   studentLink   StudentLink?
   adminAuditLogs admin_audit_logs[]
@@ -23,6 +24,40 @@ model AppUser {
   @@index([role], map: "ix_app_users_role")
   @@index([firebaseUid], map: "ix_app_users_firebase_uid")
   @@map("app_users")
+}
+
+model AppUserAccess {
+  appUserId               BigInt   @id @map("app_user_id")
+  dashboardAccessEnabled  Boolean  @default(true) @map("dashboard_access_enabled")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  appUser                 AppUser  @relation(fields: [appUserId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("app_user_access")
+}
+
+model AppRuntimeSettings {
+  id             Int      @id
+  signupsEnabled Boolean  @default(true) @map("signups_enabled")
+  linkingEnabled Boolean  @default(true) @map("linking_enabled")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("app_runtime_settings")
+}
+
+model StaffProfile {
+  appUserId        BigInt   @id @map("app_user_id")
+  staffType        String   @map("staff_type") @db.VarChar(32)
+  branchName       String?  @map("branch_name") @db.VarChar(255)
+  status           String   @default("active") @db.VarChar(24)
+  createdByUserId  BigInt?  @map("created_by_user_id")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@index([branchName], map: "ix_staff_profiles_branch_name")
+  @@index([staffType], map: "ix_staff_profiles_staff_type")
+  @@map("staff_profiles")
 }
 
 model admin_audit_logs {

@@ -48,7 +48,11 @@ export function StudentSupportForm() {
       setDescription("");
       setIssueType("wrong_data");
       setMessage(payload?.message ?? "Issue submitted.");
-      window.dispatchEvent(new Event("student-support-issues:refresh"));
+      window.dispatchEvent(
+        new CustomEvent("student-support-issues:refresh", {
+          detail: { resetToFirstPage: true }
+        })
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to submit the issue.");
     } finally {

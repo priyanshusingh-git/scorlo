@@ -1,27 +1,37 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import { isMainAdminEmail } from "@/lib/admin/constants";
 import { getCurrentSessionUser } from "@/lib/auth/session";
+import {
+  type AdminSessionUser,
+  canReadStudentsAsStaff,
+  getStaffProfileForAppUser,
+  isMainAdminStaff
+} from "@/lib/staff-access";
 
 export async function getCurrentAdminSessionUser() {
   const user = await getCurrentSessionUser();
-  return user?.role === "admin" ? user : null;
+  const staffProfile = await getStaffProfileForAppUser(user);
+
+  if (!user || !staffProfile || !canReadStudentsAsStaff({ staff_profile: staffProfile })) {
+    return null;
+  }
+
+  return {
+    ...user,
+    staff_profile: staffProfile
+  } satisfies AdminSessionUser;
 }
 
-export function isMainAdminUser(user: { email: string }) {
-  return isMainAdminEmail(user.email);
+export function isMainAdminUser(user: { staff_profile: { staff_type: "main_admin" | "hod" | "teacher" | "placement_cell" } }) {
+  return isMainAdminStaff(user);
 }
 
 export async function requireAdminSession() {
-  const user = await getCurrentSessionUser();
+  const user = await getCurrentAdminSessionUser();
 
   if (!user) {
     redirect("/login");
-  }
-
-  if (user.role !== "admin") {
-    redirect("/");
   }
 
   return user;
@@ -31,7 +41,7 @@ export async function requireMainAdminSession() {
   const user = await requireAdminSession();
 
   if (!isMainAdminUser(user)) {
-    redirect("/admin");
+    redirect("/admin/students");
   }
 
   return user;

@@ -4,19 +4,36 @@ import { redirect } from "next/navigation";
 import { ClearStaleSession } from "@/components/clear-stale-session";
 import { SignInForm } from "@/components/sign-in-form";
 import { LoginBackground } from "@/components/login-background";
+import { getAppRuntimeControls } from "@/lib/app-runtime-controls";
+import { getCurrentAdminSessionUser } from "@/lib/auth/admin";
 import { getCurrentSessionUser } from "@/lib/auth/session";
 import { getSessionCookieName } from "@/lib/session-cookie";
 
-export default async function LoginPage() {
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function LoginPage({ searchParams }: PageProps) {
   const cookieStore = await cookies();
   const hadSessionCookie = Boolean(cookieStore.get(getSessionCookieName())?.value);
   const user = await getCurrentSessionUser();
+  const admin = user?.role === "admin" ? await getCurrentAdminSessionUser() : null;
+  const controls = await getAppRuntimeControls();
+  const params = await searchParams;
+  const reason = typeof params.reason === "string" ? params.reason : "";
+  const initialNotice =
+    reason === "dashboard-disabled" || (user?.role === "student" && !user.dashboard_access_enabled)
+      ? {
+          tone: "error" as const,
+          message: "Your dashboard access has been disabled by the admin."
+        }
+      : null;
 
-  if (user?.role === "admin") {
+  if (admin) {
     redirect("/admin");
   }
 
-  if (user) {
+  if (user && user.dashboard_access_enabled) {
     redirect("/");
   }
 
@@ -38,7 +55,7 @@ export default async function LoginPage() {
         </div>
 
         <div className="relative w-full rounded-shell border border-line bg-surface p-7 shadow-scorlo sm:p-8">
-          <SignInForm />
+          <SignInForm signupsEnabled={controls.signupsEnabled} initialNotice={initialNotice} />
         </div>
       </div>
     </main>

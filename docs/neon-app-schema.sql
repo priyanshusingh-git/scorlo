@@ -25,6 +25,38 @@ CREATE TABLE IF NOT EXISTS app_users (
     last_login_at TIMESTAMPTZ
 );
 
+-- Global admin-controlled app gates.
+CREATE TABLE IF NOT EXISTS app_runtime_settings (
+    id INTEGER PRIMARY KEY,
+    signups_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    linking_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO app_runtime_settings (id)
+VALUES (1)
+ON CONFLICT (id) DO NOTHING;
+
+-- Per-user dashboard access override for student accounts.
+CREATE TABLE IF NOT EXISTS app_user_access (
+    app_user_id BIGINT PRIMARY KEY REFERENCES app_users(id) ON DELETE CASCADE,
+    dashboard_access_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Staff access model for admin-side RBAC and branch scoping.
+CREATE TABLE IF NOT EXISTS staff_profiles (
+    app_user_id BIGINT PRIMARY KEY REFERENCES app_users(id) ON DELETE CASCADE,
+    staff_type VARCHAR(32) NOT NULL,
+    branch_name TEXT,
+    status VARCHAR(24) NOT NULL DEFAULT 'active',
+    created_by_user_id BIGINT REFERENCES app_users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- One app account can have one current student link state.
 CREATE TABLE IF NOT EXISTS student_links (
     id BIGSERIAL PRIMARY KEY,
@@ -149,3 +181,8 @@ CREATE INDEX IF NOT EXISTS ix_admin_audit_logs_target_table
 
 CREATE INDEX IF NOT EXISTS ix_auth_rate_limits_reset_at
     ON auth_rate_limits(reset_at);
+
+CREATE INDEX IF NOT EXISTS ix_staff_profiles_branch_name
+    ON staff_profiles(branch_name);
+CREATE INDEX IF NOT EXISTS ix_staff_profiles_staff_type
+    ON staff_profiles(staff_type);

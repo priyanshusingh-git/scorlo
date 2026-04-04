@@ -18,6 +18,13 @@ export async function GET() {
       );
     }
 
+    if (!user.dashboard_access_enabled) {
+      return jsonNoStore(
+        { error: "dashboard_access_disabled", message: "Your dashboard access has been disabled by the admin." },
+        { status: 403 }
+      );
+    }
+
     const link = await getStudentLinkForUser(user.id);
 
     if (!link?.student_id) {

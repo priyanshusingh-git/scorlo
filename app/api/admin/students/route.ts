@@ -1,6 +1,7 @@
 import { jsonNoStore } from "@/lib/api-response";
 import { getCurrentAdminSessionUser } from "@/lib/auth/admin";
 import { searchAdminStudents } from "@/lib/queries/admin";
+import { getBranchScopedAccess } from "@/lib/staff-access";
 
 function parsePositiveInt(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -20,7 +21,14 @@ export async function GET(request: Request) {
     const course = searchParams.get("course") ?? "";
     const page = parsePositiveInt(searchParams.get("page"), 1);
     const pageSize = parsePositiveInt(searchParams.get("pageSize"), 10);
-    const result = await searchAdminStudents({ query, branch, course, page, pageSize });
+    const result = await searchAdminStudents({
+      query,
+      branch,
+      scopedBranch: getBranchScopedAccess(admin),
+      course,
+      page,
+      pageSize
+    });
     return jsonNoStore({ ok: true, ...result });
   } catch (error) {
     return jsonNoStore(

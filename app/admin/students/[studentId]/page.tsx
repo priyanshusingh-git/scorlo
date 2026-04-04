@@ -4,8 +4,9 @@ import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
 import { isMainAdminUser, requireAdminSession } from "@/lib/auth/admin";
 import { formatBranchLabel } from "@/lib/branch-label";
-import { getAdminStudentDetail } from "@/lib/queries/admin";
+import { getAdminStudentDetailForScope } from "@/lib/queries/admin";
 import { getRankingsForStudent } from "@/lib/queries/rankings";
+import { getBranchScopedAccess } from "@/lib/staff-access";
 
 type PageProps = {
   params: Promise<{
@@ -16,6 +17,7 @@ type PageProps = {
 export default async function AdminStudentProfilePage({ params }: PageProps) {
   const admin = await requireAdminSession();
   const isMainAdmin = isMainAdminUser(admin);
+  const scopedBranch = getBranchScopedAccess(admin);
   const { studentId } = await params;
   const parsedStudentId = Number(studentId);
 
@@ -23,14 +25,13 @@ export default async function AdminStudentProfilePage({ params }: PageProps) {
     notFound();
   }
 
-  const [detail, rankings] = await Promise.all([
-    getAdminStudentDetail(parsedStudentId),
-    getRankingsForStudent(parsedStudentId)
-  ]);
+  const detail = await getAdminStudentDetailForScope(parsedStudentId, scopedBranch);
 
   if (!detail) {
     notFound();
   }
+
+  const rankings = await getRankingsForStudent(parsedStudentId);
 
   return (
     <>

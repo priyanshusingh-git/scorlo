@@ -1,10 +1,11 @@
 import { jsonNoStore } from "@/lib/api-response";
 import { z } from "zod";
 import { getCurrentAdminSessionUser, isMainAdminUser } from "@/lib/auth/admin";
-import { deleteUserAccount, updateUserRole } from "@/lib/admin/mutations";
+import { deleteUserAccount, updateUserDashboardAccess, updateUserRole } from "@/lib/admin/mutations";
 
 const bodySchema = z.object({
-  role: z.enum(["student", "admin"])
+  role: z.enum(["student", "admin"]).optional(),
+  dashboardAccessEnabled: z.boolean().optional()
 });
 
 function getUserId(params: { userId: string }) {
@@ -28,8 +29,23 @@ export async function PATCH(request: Request, context: { params: Promise<{ userI
     const { userId } = await context.params;
     const id = getUserId({ userId });
     const body = bodySchema.parse(await request.json());
-    await updateUserRole(admin.id, id, body.role);
-    return jsonNoStore({ ok: true, message: "Role updated." });
+
+    if (body.dashboardAccessEnabled !== undefined) {
+      await updateUserDashboardAccess(admin.id, id, body.dashboardAccessEnabled);
+      return jsonNoStore({
+        ok: true,
+        message: body.dashboardAccessEnabled
+          ? "Dashboard access enabled."
+          : "Dashboard access disabled."
+      });
+    }
+
+    if (body.role) {
+      await updateUserRole(admin.id, id, body.role);
+      return jsonNoStore({ ok: true, message: "Role updated." });
+    }
+
+    throw new Error("No supported user update was provided.");
   } catch (error) {
     return jsonNoStore(
       { error: "user_update_failed", message: error instanceof Error ? error.message : "Unable to update user." },

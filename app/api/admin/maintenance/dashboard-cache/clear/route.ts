@@ -1,17 +1,17 @@
-import { NextResponse } from "next/server";
+import { jsonNoStore } from "@/lib/api-response";
 import { getCurrentAdminSessionUser, isMainAdminUser } from "@/lib/auth/admin";
 import { clearStudentDashboardCaches } from "@/lib/admin/mutations";
 
 export async function POST() {
   const admin = await getCurrentAdminSessionUser();
   if (!admin) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "unauthorized", message: "Admin session required." },
       { status: 401 }
     );
   }
   if (!isMainAdminUser(admin)) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: "forbidden", message: "Only the main admin can access maintenance." },
       { status: 403 }
     );
@@ -19,13 +19,13 @@ export async function POST() {
 
   try {
     const result = await clearStudentDashboardCaches(admin.id);
-    return NextResponse.json({
+    return jsonNoStore({
       ok: true,
       message: "App snapshot cache cleared.",
       result
     });
   } catch (error) {
-    return NextResponse.json(
+    return jsonNoStore(
       {
         error: "dashboard_cache_clear_failed",
         message: error instanceof Error ? error.message : "Unable to clear the dashboard cache."
