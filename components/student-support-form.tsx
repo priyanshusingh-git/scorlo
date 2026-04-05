@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
+import { useToast } from "@/components/toast-provider";
 
 const issueTypeOptions = [
   { value: "wrong_data", label: "Wrong data" },
@@ -12,16 +13,15 @@ const issueTypeOptions = [
 ] as const;
 
 export function StudentSupportForm() {
+  const { pushToast } = useToast();
   const [issueType, setIssueType] = useState<(typeof issueTypeOptions)[number]["value"]>("wrong_data");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-    setMessage(null);
 
     try {
       const response = await fetch("/api/support/issues", {
@@ -47,14 +47,22 @@ export function StudentSupportForm() {
       setTitle("");
       setDescription("");
       setIssueType("wrong_data");
-      setMessage(payload?.message ?? "Issue submitted.");
+      pushToast({
+        tone: "success",
+        title: payload?.message ?? "Issue submitted.",
+        description: "Your report is now visible in the support queue for review."
+      });
       window.dispatchEvent(
         new CustomEvent("student-support-issues:refresh", {
           detail: { resetToFirstPage: true }
         })
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to submit the issue.");
+      pushToast({
+        tone: "error",
+        title: "Unable to submit issue",
+        description: error instanceof Error ? error.message : "Unable to submit the issue."
+      });
     } finally {
       setPending(false);
     }
@@ -102,7 +110,6 @@ export function StudentSupportForm() {
           {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
           <span>{pending ? "Submitting..." : "Submit issue"}</span>
         </button>
-        {message ? <p className="text-sm text-slate">{message}</p> : null}
       </div>
     </form>
   );

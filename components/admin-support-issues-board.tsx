@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
+import { useToast } from "@/components/toast-provider";
 import { formatDateTimeLabel } from "@/lib/format-date";
 import type { AdminSupportIssueRow, SupportIssueStatus, SupportIssueType } from "@/lib/queries/support";
 
@@ -31,14 +32,13 @@ function statusTone(status: SupportIssueStatus) {
 
 function IssueCard({ issue }: { issue: AdminSupportIssueRow }) {
   const router = useRouter();
+  const { pushToast } = useToast();
   const [status, setStatus] = useState<SupportIssueStatus>(issue.status);
   const [notes, setNotes] = useState(issue.admin_notes ?? "");
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function handleSave() {
     setPending(true);
-    setMessage(null);
 
     try {
       const response = await fetch(`/api/admin/issues/${issue.id}`, {
@@ -57,10 +57,18 @@ function IssueCard({ issue }: { issue: AdminSupportIssueRow }) {
         throw new Error(payload?.message ?? "Unable to update the issue.");
       }
 
-      setMessage(payload?.message ?? "Issue updated.");
+      pushToast({
+        tone: "success",
+        title: payload?.message ?? "Issue updated.",
+        description: "Support queue state has been refreshed."
+      });
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update the issue.");
+      pushToast({
+        tone: "error",
+        title: "Unable to update issue",
+        description: error instanceof Error ? error.message : "Unable to update the issue."
+      });
     } finally {
       setPending(false);
     }
@@ -120,7 +128,6 @@ function IssueCard({ issue }: { issue: AdminSupportIssueRow }) {
           Reported {formatDateTimeLabel(issue.created_at)}
           {issue.link_status ? ` • Link ${issue.link_status}` : ""}
         </span>
-        {message ? <span className="text-xs text-slate">{message}</span> : null}
       </div>
     </div>
   );

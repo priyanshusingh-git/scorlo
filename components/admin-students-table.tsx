@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { AdminStudentTableRow } from "@/components/admin-student-table-row";
+import { AdminStudentExportTrigger } from "@/components/admin-student-export-trigger";
 import { formatBranchLabel } from "@/lib/branch-label";
 import { SectionBlock } from "@/components/section-block";
 
@@ -65,6 +66,16 @@ export function AdminStudentsTable() {
   const [data, setData] = useState<StudentsResponse | null>(null);
   const [pending, setPending] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     setDraftQuery(urlQuery);
@@ -76,18 +87,25 @@ export function AdminStudentsTable() {
   }, [urlBranch, urlCourse, urlPage, urlPageSize, urlQuery]);
 
   useEffect(() => {
-    const controller = new AbortController();
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     const cacheKey = JSON.stringify({ query, branch, course, page, pageSize });
     const cached = STUDENTS_TABLE_CACHE.get(cacheKey);
 
     async function load() {
       if (cached) {
-        setData(cached);
-        setPending(false);
+        if (mountedRef.current && requestId === requestIdRef.current) {
+          setData(cached);
+          setPending(false);
+        }
       } else {
-        setPending(true);
+        if (mountedRef.current && requestId === requestIdRef.current) {
+          setPending(true);
+        }
       }
-      setError(null);
+      if (mountedRef.current && requestId === requestIdRef.current) {
+        setError(null);
+      }
 
       try {
         const params = new URLSearchParams();
@@ -97,9 +115,7 @@ export function AdminStudentsTable() {
         params.set("page", String(page));
         params.set("pageSize", String(pageSize));
 
-        const response = await fetch(`/api/admin/students?${params.toString()}`, {
-          signal: controller.signal
-        });
+        const response = await fetch(`/api/admin/students?${params.toString()}`);
 
         const payload = (await response.json()) as
           | ({ ok?: boolean; error?: string; message?: string } & Partial<StudentsResponse>)
@@ -118,21 +134,21 @@ export function AdminStudentsTable() {
           availableCourses: payload.availableCourses ?? []
         };
         STUDENTS_TABLE_CACHE.set(cacheKey, nextData);
-        setData(nextData);
-      } catch (loadError) {
-        if ((loadError as Error).name === "AbortError") {
-          return;
+        if (mountedRef.current && requestId === requestIdRef.current) {
+          setData(nextData);
         }
-
-        setError(loadError instanceof Error ? loadError.message : "Unable to load students.");
+      } catch (loadError) {
+        if (mountedRef.current && requestId === requestIdRef.current) {
+          setError(loadError instanceof Error ? loadError.message : "Unable to load students.");
+        }
       } finally {
-        setPending(false);
+        if (mountedRef.current && requestId === requestIdRef.current) {
+          setPending(false);
+        }
       }
     }
 
     void load();
-
-    return () => controller.abort();
   }, [branch, course, page, pageSize, query]);
 
   const totalCount = data?.totalCount ?? 0;
@@ -154,7 +170,20 @@ export function AdminStudentsTable() {
   }
 
   return (
-    <SectionBlock title="Student records">
+    <SectionBlock
+      title="Student records"
+      actions={
+        <AdminStudentExportTrigger
+          mode="list"
+          query={query}
+          branch={branch}
+          course={course}
+          page={currentPage}
+          pageSize={currentPageSize}
+          totalCount={totalCount}
+        />
+      }
+    >
       <div className="space-y-4">
         <form
           className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_180px_auto]"

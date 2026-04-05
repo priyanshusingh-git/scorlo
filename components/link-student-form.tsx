@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronRight, LoaderCircle } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
+import { useToast } from "@/components/toast-provider";
 
 type LinkState = {
   student_link_id: number | null;
@@ -46,16 +47,15 @@ export function LinkStudentForm({
   email: string | null;
 }) {
   const router = useRouter();
+  const { pushToast } = useToast();
   const datePickerRef = useRef<HTMLInputElement | null>(null);
   const [rollNo, setRollNo] = useState(link?.roll_no ?? "");
   const [dob, setDob] = useState("");
   const [pending, setPending] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-    setStatus(null);
 
     try {
       const response = await fetch("/api/link-student", {
@@ -74,16 +74,26 @@ export function LinkStudentForm({
         throw new Error(details ? `${errorMsg} (${details})` : errorMsg);
       }
 
-      setStatus(
-        payload?.message ??
+      pushToast({
+        tone: payload?.link?.status === "linked" ? "success" : "info",
+        title:
+          payload?.message ??
           (payload?.link?.status === "linked"
             ? "Academic record linked successfully."
-            : "Your account is under verification from the admin.")
-      );
+            : "Verification request submitted."),
+        description:
+          payload?.link?.status === "linked"
+            ? "Your dashboard will now reflect the linked academic profile."
+            : "Your profile will stay pending until an admin reviews the request."
+      });
       setDob("");
       router.refresh();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Unable to link your academic record.");
+      pushToast({
+        tone: "error",
+        title: "Unable to link academic record",
+        description: error instanceof Error ? error.message : "Unable to link your academic record."
+      });
     } finally {
       setPending(false);
     }
@@ -192,7 +202,6 @@ export function LinkStudentForm({
         </div>
       ) : null}
 
-      {status ? <p className="text-sm leading-6 text-slate">{status}</p> : null}
     </div>
   );
 }

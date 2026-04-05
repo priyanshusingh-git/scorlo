@@ -1,37 +1,121 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoaderCircle } from "lucide-react";
+import { AlertCircle, LoaderCircle } from "lucide-react";
+import { useToast } from "@/components/toast-provider";
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request failed.";
 }
 
+function useConfirmDialog() {
+  const resolverRef = useRef<((value: boolean) => void) | null>(null);
+  const [dialogState, setDialogState] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+  } | null>(null);
+
+  async function confirm({
+    title = "Confirm action",
+    description,
+    confirmLabel = "Continue"
+  }: {
+    title?: string;
+    description: string;
+    confirmLabel?: string;
+  }) {
+    return new Promise<boolean>((resolve) => {
+      resolverRef.current = resolve;
+      setDialogState({
+        title,
+        description,
+        confirmLabel
+      });
+    });
+  }
+
+  function closeWith(result: boolean) {
+    resolverRef.current?.(result);
+    resolverRef.current = null;
+    setDialogState(null);
+  }
+
+  const dialog = dialogState ? (
+    <div className="fixed inset-0 z-[110] flex items-end justify-center bg-ink/40 px-4 pb-4 pt-10 backdrop-blur-[2px] sm:items-center">
+      <div className="w-full max-w-md rounded-[1.5rem] border border-line bg-surface px-5 py-5 shadow-[0_28px_70px_-34px_rgba(16,32,49,0.48)]">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-full bg-warning-soft p-2 text-warning">
+            <AlertCircle className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-semibold text-ink">{dialogState.title}</h3>
+            <p className="mt-2 text-sm leading-6 text-slate">{dialogState.description}</p>
+          </div>
+        </div>
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => closeWith(false)}
+            className="rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-app/60"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => closeWith(true)}
+            className="rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-ink/90"
+          >
+            {dialogState.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  return {
+    confirm,
+    dialog
+  };
+}
+
 function useAdminRequest() {
   const router = useRouter();
+  const { pushToast } = useToast();
+  const { confirm, dialog } = useConfirmDialog();
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function run({
     url,
     method,
     body,
     confirmMessage,
+    confirmTitle,
+    confirmLabel,
     successMessage
   }: {
     url: string;
     method: "POST" | "PATCH" | "DELETE";
     body?: Record<string, unknown>;
     confirmMessage?: string;
+    confirmTitle?: string;
+    confirmLabel?: string;
     successMessage?: string;
   }) {
-    if (confirmMessage && !window.confirm(confirmMessage)) {
-      return false;
+    if (confirmMessage) {
+      const confirmed = await confirm({
+        title: confirmTitle,
+        description: confirmMessage,
+        confirmLabel
+      });
+
+      if (!confirmed) {
+        return false;
+      }
     }
 
     setPending(true);
-    setMessage(null);
 
     try {
       const response = await fetch(url, {
@@ -48,18 +132,25 @@ function useAdminRequest() {
         throw new Error(payload?.message ?? "Request failed.");
       }
 
-      setMessage(successMessage ?? payload?.message ?? "Saved.");
+      pushToast({
+        tone: "success",
+        title: successMessage ?? payload?.message ?? "Saved."
+      });
       router.refresh();
       return true;
     } catch (error) {
-      setMessage(getErrorMessage(error));
+      pushToast({
+        tone: "error",
+        title: "Request failed",
+        description: getErrorMessage(error)
+      });
       return false;
     } finally {
       setPending(false);
     }
   }
 
-  return { pending, message, run };
+  return { pending, run, dialog };
 }
 
 export function AdminUserRoleForm({
@@ -70,7 +161,7 @@ export function AdminUserRoleForm({
   currentRole: "student" | "admin";
 }) {
   const [role, setRole] = useState(currentRole);
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
 
   return (
     <div className="space-y-2">
@@ -100,7 +191,7 @@ export function AdminUserRoleForm({
           {pending ? "Saving..." : "Update role"}
         </button>
       </div>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }
@@ -110,15 +201,19 @@ export function AdminDangerButton({
   url,
   method = "DELETE",
   confirmMessage,
+  confirmTitle,
+  confirmLabel,
   successMessage
 }: {
   label: string;
   url: string;
   method?: "POST" | "DELETE";
   confirmMessage: string;
+  confirmTitle?: string;
+  confirmLabel?: string;
   successMessage?: string;
 }) {
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
 
   return (
     <div className="space-y-2">
@@ -130,6 +225,8 @@ export function AdminDangerButton({
             url,
             method,
             confirmMessage,
+            confirmTitle,
+            confirmLabel,
             successMessage
           })
         }
@@ -138,7 +235,7 @@ export function AdminDangerButton({
         {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
         <span>{pending ? "Working..." : label}</span>
       </button>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }
@@ -152,7 +249,7 @@ export function AdminRuntimeControlsForm({
 }) {
   const [signupsEnabled, setSignupsEnabled] = useState(initialSignupsEnabled);
   const [linkingEnabled, setLinkingEnabled] = useState(initialLinkingEnabled);
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
 
   async function saveControls(next: {
     signupsEnabled?: boolean;
@@ -236,7 +333,7 @@ export function AdminRuntimeControlsForm({
           </div>
         </div>
       </div>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }
@@ -249,7 +346,7 @@ export function AdminUserDashboardAccessForm({
   initialEnabled: boolean;
 }) {
   const [enabled, setEnabled] = useState(initialEnabled);
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
 
   async function setDashboardAccess(nextEnabled: boolean) {
     setEnabled(nextEnabled);
@@ -285,7 +382,7 @@ export function AdminUserDashboardAccessForm({
           Disable dashboard
         </button>
       </div>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }
@@ -306,7 +403,7 @@ export function AdminCreateAdminForm({
     actorType === "hod" ? "teacher" : "teacher"
   );
   const [branchName, setBranchName] = useState(actorType === "hod" ? actorBranchName ?? "" : "");
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
   const branchLocked = actorType === "hod";
 
   async function handleCreate() {
@@ -396,7 +493,7 @@ export function AdminCreateAdminForm({
         {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
         <span>{pending ? "Creating..." : actorType === "hod" ? "Create teacher" : "Create staff account"}</span>
       </button>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }
@@ -417,7 +514,7 @@ export function AdminStaffProfileForm({
   const [staffType, setStaffType] = useState(initialStaffType);
   const [branchName, setBranchName] = useState(initialBranchName ?? "");
   const [status, setStatus] = useState(initialStatus);
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
 
   return (
     <div className="space-y-2">
@@ -477,7 +574,7 @@ export function AdminStaffProfileForm({
         {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
         <span>{pending ? "Saving..." : "Save staff access"}</span>
       </button>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }
@@ -496,7 +593,7 @@ export function AdminLinkForm({
   const [rollNo, setRollNo] = useState(initialRollNo);
   const [dob, setDob] = useState(initialDob);
   const [status, setStatus] = useState(initialStatus);
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
 
   return (
     <div className="space-y-2">
@@ -547,10 +644,11 @@ export function AdminLinkForm({
           label="Delete link"
           url={`/api/admin/links/${linkId}`}
           confirmMessage="Delete this student link?"
+          confirmTitle="Delete link"
           successMessage="Link deleted."
         />
       </div>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }
@@ -572,7 +670,7 @@ export function AdminDataRequestForm({
   const [dob, setDob] = useState(initialDob);
   const [status, setStatus] = useState(initialStatus);
   const [notes, setNotes] = useState(initialNotes ?? "");
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
 
   async function submit(action: "save" | "approve" | "reject") {
     await run({
@@ -580,6 +678,8 @@ export function AdminDataRequestForm({
       method: "PATCH",
       body: { rollNo, dob, status, notes, action },
       confirmMessage: action === "approve" ? "Approve this request and link the student record?" : undefined,
+      confirmTitle: action === "approve" ? "Approve request" : undefined,
+      confirmLabel: action === "approve" ? "Approve and link" : undefined,
       successMessage:
         action === "approve" ? "Request approved and linked." : action === "reject" ? "Request rejected." : "Request saved."
     });
@@ -652,10 +752,11 @@ export function AdminDataRequestForm({
           label="Delete request"
           url={`/api/admin/data-requests/${requestId}`}
           confirmMessage="Delete this data request?"
+          confirmTitle="Delete request"
           successMessage="Data request deleted."
         />
       </div>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }
@@ -663,7 +764,7 @@ export function AdminDataRequestForm({
 export function AdminStudentAttachForm({ studentId }: { studentId: number }) {
   const [appUserId, setAppUserId] = useState("");
   const [dob, setDob] = useState("");
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
 
   return (
     <div className="space-y-2">
@@ -692,6 +793,8 @@ export function AdminStudentAttachForm({ studentId }: { studentId: number }) {
             method: "POST",
             body: { appUserId: Number(appUserId), dob },
             confirmMessage: "Attach this student to the specified app user?",
+            confirmTitle: "Attach student",
+            confirmLabel: "Attach",
             successMessage: "Student attached."
           })
         }
@@ -700,13 +803,13 @@ export function AdminStudentAttachForm({ studentId }: { studentId: number }) {
         {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
         <span>{pending ? "Linking..." : "Attach to app user"}</span>
       </button>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }
 
 export function RankingRebuildButton() {
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
 
   return (
     <div className="space-y-2">
@@ -718,6 +821,8 @@ export function RankingRebuildButton() {
             url: "/api/admin/maintenance/rebuild-rankings",
             method: "POST",
             confirmMessage: "Rebuild the entire student ranking cache?",
+            confirmTitle: "Rebuild ranking cache",
+            confirmLabel: "Rebuild",
             successMessage: "Ranking cache rebuilt."
           })
         }
@@ -726,13 +831,13 @@ export function RankingRebuildButton() {
         {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
         <span>{pending ? "Rebuilding..." : "Rebuild ranking cache"}</span>
       </button>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }
 
 export function DashboardCacheRebuildButton() {
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
 
   return (
     <div className="space-y-2">
@@ -744,6 +849,8 @@ export function DashboardCacheRebuildButton() {
             url: "/api/admin/maintenance/dashboard-cache/rebuild",
             method: "POST",
             confirmMessage: "Rebuild full app snapshot rows for all currently linked students?",
+            confirmTitle: "Rebuild app snapshot cache",
+            confirmLabel: "Rebuild",
             successMessage: "App snapshot cache rebuilt."
           })
         }
@@ -752,13 +859,13 @@ export function DashboardCacheRebuildButton() {
         {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
         <span>{pending ? "Rebuilding..." : "Rebuild app snapshot cache"}</span>
       </button>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }
 
 export function DashboardCacheClearButton() {
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
 
   return (
     <div className="space-y-2">
@@ -770,6 +877,8 @@ export function DashboardCacheClearButton() {
             url: "/api/admin/maintenance/dashboard-cache/clear",
             method: "POST",
             confirmMessage: "Clear all stored app snapshot cache rows?",
+            confirmTitle: "Clear app snapshot cache",
+            confirmLabel: "Clear cache",
             successMessage: "App snapshot cache cleared."
           })
         }
@@ -778,12 +887,12 @@ export function DashboardCacheClearButton() {
         {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
         <span>{pending ? "Clearing..." : "Clear app snapshot cache"}</span>
       </button>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }
 export function AuthCleanupButton() {
-  const { pending, message, run } = useAdminRequest();
+  const { pending, run, dialog } = useAdminRequest();
 
   return (
     <div className="space-y-2">
@@ -795,6 +904,8 @@ export function AuthCleanupButton() {
             url: "/api/admin/maintenance/auth-cleanup",
             method: "POST",
             confirmMessage: "Permanently delete ALL users who signed up over 48 hours ago but haven't verified their email?",
+            confirmTitle: "Purge unverified accounts",
+            confirmLabel: "Purge accounts",
             successMessage: "Purge complete."
           })
         }
@@ -803,7 +914,7 @@ export function AuthCleanupButton() {
         {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
         <span>{pending ? "Purging..." : "Purge unverified accounts (48h+)"}</span>
       </button>
-      {message ? <p className="text-xs text-slate">{message}</p> : null}
+      {dialog}
     </div>
   );
 }

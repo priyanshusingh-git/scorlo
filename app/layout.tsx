@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Host_Grotesk, Instrument_Serif } from "next/font/google";
 import { PwaRegister } from "@/components/pwa-register";
+import { ToastProvider } from "@/components/toast-provider";
 import "./globals.css";
 
 const hostGrotesk = Host_Grotesk({
@@ -66,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
         <PwaRegister />
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { AdminDangerButton } from "@/components/admin-actions";
+import { AdminStudentExportTrigger } from "@/components/admin-student-export-trigger";
 import { SectionBlock } from "@/components/section-block";
 import { StatusBadge } from "@/components/status-badge";
 import { isMainAdminUser, requireAdminSession } from "@/lib/auth/admin";
@@ -34,8 +35,17 @@ export default async function AdminStudentProfilePage({ params }: PageProps) {
   const rankings = await getRankingsForStudent(parsedStudentId);
 
   return (
-    <>
-      <SectionBlock title={detail.name ?? "Unnamed student"}>
+    <div className="animate-route-content-in space-y-5 lg:space-y-6">
+      <SectionBlock
+        title={detail.name ?? "Unnamed student"}
+        actions={
+          <AdminStudentExportTrigger
+            mode="single"
+            studentId={detail.id}
+            studentLabel={detail.name ?? detail.roll_no}
+          />
+        }
+      >
         <div className="flex flex-wrap gap-2">
           <StatusBadge tone={detail.linked_app_user_id ? "success" : "warning"}>
             {detail.linked_app_user_id ? "Linked" : "Unlinked"}
@@ -45,7 +55,7 @@ export default async function AdminStudentProfilePage({ params }: PageProps) {
           <StatusBadge tone="accent">{detail.roll_no}</StatusBadge>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
           <InfoTile label="CGPA" value={detail.cgpa ?? "--"} />
           <InfoTile label="Overall %" value={detail.overall_percentage ?? "--"} />
           <InfoTile label="Active backs" value={String(detail.active_backs)} />
@@ -112,15 +122,17 @@ export default async function AdminStudentProfilePage({ params }: PageProps) {
           />
         </SectionBlock>
       ) : null}
-    </>
+    </div>
   );
 }
 
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[1rem] border border-line bg-surface px-4 py-3">
-      <div className="text-[11px] uppercase tracking-[0.16em] text-mist">{label}</div>
-      <div className="mt-1 text-sm font-medium text-ink">{value}</div>
+    <div className="rounded-[1rem] border border-line bg-surface px-3 py-3 sm:px-4">
+      <div className="text-[10px] uppercase tracking-[0.12em] text-mist sm:text-[11px] sm:tracking-[0.16em]">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-medium text-ink sm:text-[0.95rem]">{value}</div>
     </div>
   );
 }
