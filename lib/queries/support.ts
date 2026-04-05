@@ -139,6 +139,7 @@ export async function listSupportIssuesForStudent(appUserId: number) {
     SELECT COUNT(*)::int AS total
     FROM support_issues
     WHERE app_user_id = ${appUserId}
+      AND status IN ('open', 'in_progress')
   `) as Array<{ total: number }>;
 
   const rows = (await sql`
@@ -156,6 +157,7 @@ export async function listSupportIssuesForStudent(appUserId: number) {
       resolved_at::text
     FROM support_issues
     WHERE app_user_id = ${appUserId}
+      AND status IN ('open', 'in_progress')
     ORDER BY created_at DESC, id DESC
     LIMIT ${pageSize}
   `) as StudentSupportIssueRow[];
@@ -187,6 +189,7 @@ export async function listSupportIssuesForStudentPaginated({
     SELECT COUNT(*)::int AS total
     FROM support_issues
     WHERE app_user_id = ${appUserId}
+      AND status IN ('open', 'in_progress')
   `) as Array<{ total: number }>;
 
   const rows = (await sql`
@@ -204,6 +207,7 @@ export async function listSupportIssuesForStudentPaginated({
       resolved_at::text
     FROM support_issues
     WHERE app_user_id = ${appUserId}
+      AND status IN ('open', 'in_progress')
     ORDER BY created_at DESC, id DESC
     LIMIT ${normalizedPageSize}
     OFFSET ${offset}

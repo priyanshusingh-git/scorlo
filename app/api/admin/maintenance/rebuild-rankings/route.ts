@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentAdminSessionUser, isMainAdminUser } from "@/lib/auth/admin";
 import { rebuildStudentRankings } from "@/lib/admin/mutations";
 
-export async function POST() {
+export async function POST(request: Request) {
   const admin = await getCurrentAdminSessionUser();
   if (!admin) {
     return NextResponse.json({ error: "unauthorized", message: "Admin session required." }, { status: 401 });
@@ -12,10 +12,15 @@ export async function POST() {
   }
 
   try {
-    const result = await rebuildStudentRankings(admin.id);
+    const body = (await request.json().catch(() => null)) as { passingYear?: unknown } | null;
+    const passingYear = typeof body?.passingYear === "number" ? body.passingYear : undefined;
+    const result = await rebuildStudentRankings(admin.id, { passingYear });
     return NextResponse.json({
       ok: true,
-      message: `Ranking cache rebuilt with ${result.totalRows} rows and ${result.refreshedSnapshots} app snapshots refreshed.`,
+      message:
+        result.passingYear === null
+          ? `Ranking cache rebuilt with ${result.totalRows} rows and ${result.refreshedSnapshots} app snapshots refreshed.`
+          : `Batch ${result.passingYear} ranking cache rebuilt with ${result.affectedRows} affected rows and ${result.refreshedSnapshots} app snapshots refreshed.`,
       result
     });
   } catch (error) {

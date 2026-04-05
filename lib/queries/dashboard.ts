@@ -813,9 +813,23 @@ export async function refreshDashboardCacheForStudent(studentId: number) {
   return rebuildDashboardCacheForStudent(studentId);
 }
 
-export async function rebuildDashboardCachesForLinkedStudents() {
+async function getLinkedStudentIds(options?: { passingYear?: number }) {
   await ensureSnapshotCacheTable();
   const sql = getSql();
+  if (options?.passingYear !== undefined) {
+    const linkedRows = (await sql`
+      SELECT DISTINCT sl.student_id::int AS student_id
+      FROM student_links sl
+      JOIN students s ON s.id = sl.student_id
+      WHERE sl.status = 'linked'
+        AND sl.student_id IS NOT NULL
+        AND s.passing_year = ${options.passingYear}
+      ORDER BY sl.student_id ASC
+    `) as Array<{ student_id: number }>;
+
+    return linkedRows.map((row) => row.student_id);
+  }
+
   const linkedRows = (await sql`
     SELECT DISTINCT student_id::int AS student_id
     FROM student_links
@@ -824,18 +838,37 @@ export async function rebuildDashboardCachesForLinkedStudents() {
     ORDER BY student_id ASC
   `) as Array<{ student_id: number }>;
 
-  await clearAllDashboardCaches();
+  return linkedRows.map((row) => row.student_id);
+}
+
+async function rebuildDashboardCachesForStudentIds(
+  studentIds: number[],
+  options?: { clearExisting?: boolean }
+) {
+  if (options?.clearExisting) {
+    await clearAllDashboardCaches();
+  }
 
   let rebuilt = 0;
-  for (const row of linkedRows) {
-    const payload = await rebuildDashboardCacheForStudent(row.student_id);
+  for (const studentId of studentIds) {
+    const payload = await rebuildDashboardCacheForStudent(studentId);
     if (payload) rebuilt += 1;
   }
 
   return {
     rebuiltStudents: rebuilt,
-    linkedStudents: linkedRows.length
+    linkedStudents: studentIds.length
   };
+}
+
+export async function rebuildDashboardCachesForLinkedStudents() {
+  const studentIds = await getLinkedStudentIds();
+  return rebuildDashboardCachesForStudentIds(studentIds, { clearExisting: true });
+}
+
+export async function rebuildDashboardCachesForPassingYear(passingYear: number) {
+  const studentIds = await getLinkedStudentIds({ passingYear });
+  return rebuildDashboardCachesForStudentIds(studentIds);
 }
 
 export async function refreshDashboardCachesForLinkedStudents() {

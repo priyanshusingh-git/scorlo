@@ -24,29 +24,31 @@ export default async function AdminOverviewPage() {
         <OverviewStats overviewPromise={overviewPromise} />
       </Suspense>
 
-      <Suspense
-        fallback={
-          <AdminSectionFallback
-            title="Recent login activity"
-            description=""
-            rows={5}
-          />
-        }
-      >
-        <RecentLoginsSection overviewPromise={overviewPromise} />
-      </Suspense>
+      <section className="grid grid-cols-1 gap-5 2xl:grid-cols-2">
+        <Suspense
+          fallback={
+            <AdminSectionFallback
+              title="Recent login activity"
+              description=""
+              rows={5}
+            />
+          }
+        >
+          <RecentLoginsSection overviewPromise={overviewPromise} />
+        </Suspense>
 
-      <Suspense
-        fallback={
-          <AdminSectionFallback
-            title="Recent admin actions"
-            description=""
-            rows={5}
-          />
-        }
-      >
-        <RecentAuditLogsSection overviewPromise={overviewPromise} />
-      </Suspense>
+        <Suspense
+          fallback={
+            <AdminSectionFallback
+              title="Recent admin actions"
+              description=""
+              rows={5}
+            />
+          }
+        >
+          <RecentAuditLogsSection overviewPromise={overviewPromise} />
+        </Suspense>
+      </section>
     </>
   );
 }

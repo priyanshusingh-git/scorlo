@@ -809,28 +809,71 @@ export function AdminStudentAttachForm({ studentId }: { studentId: number }) {
 }
 
 export function RankingRebuildButton() {
+  const [passingYear, setPassingYear] = useState("");
   const { pending, run, dialog } = useAdminRequest();
+  const { pushToast } = useToast();
+
+  async function rebuildBatch() {
+    const parsedPassingYear = Number.parseInt(passingYear.trim(), 10);
+    if (!Number.isInteger(parsedPassingYear)) {
+      pushToast({
+        tone: "error",
+        title: "Passing year required",
+        description: "Enter a valid batch year like 2027 before running a targeted rebuild."
+      });
+      return;
+    }
+
+    await run({
+      url: "/api/admin/maintenance/rebuild-rankings",
+      method: "POST",
+      body: { passingYear: parsedPassingYear },
+      confirmMessage: `Rebuild ranking rows and linked app snapshots for Batch ${parsedPassingYear} only?`,
+      confirmTitle: "Rebuild batch ranking cache",
+      confirmLabel: "Rebuild batch",
+      successMessage: `Batch ${parsedPassingYear} ranking cache rebuilt.`
+    });
+  }
 
   return (
-    <div className="space-y-2">
-      <button
-        type="button"
+    <div className="space-y-3">
+      <input
+        value={passingYear}
+        onChange={(event) => setPassingYear(event.target.value)}
+        className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+        placeholder="Passing year for targeted rebuild, e.g. 2027"
         disabled={pending}
-        onClick={() =>
-          run({
-            url: "/api/admin/maintenance/rebuild-rankings",
-            method: "POST",
-            confirmMessage: "Rebuild the entire student ranking cache?",
-            confirmTitle: "Rebuild ranking cache",
-            confirmLabel: "Rebuild",
-            successMessage: "Ranking cache rebuilt."
-          })
-        }
-        className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-      >
-        {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-        <span>{pending ? "Rebuilding..." : "Rebuild ranking cache"}</span>
-      </button>
+        inputMode="numeric"
+      />
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => void rebuildBatch()}
+          className="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-semibold text-ink disabled:opacity-60"
+        >
+          {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+          <span>{pending ? "Rebuilding..." : "Rebuild one batch"}</span>
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            run({
+              url: "/api/admin/maintenance/rebuild-rankings",
+              method: "POST",
+              confirmMessage: "Rebuild the entire student ranking cache for every batch?",
+              confirmTitle: "Rebuild ranking cache",
+              confirmLabel: "Rebuild all",
+              successMessage: "Full ranking cache rebuilt."
+            })
+          }
+          className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+          <span>{pending ? "Rebuilding..." : "Rebuild all batches"}</span>
+        </button>
+      </div>
       {dialog}
     </div>
   );

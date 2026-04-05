@@ -144,7 +144,7 @@ export function StudentSupportIssues() {
           </div>
         ))
       ) : (
-        <p className="text-sm text-slate">No issues submitted yet.</p>
+        <p className="text-sm text-slate">No active issues right now.</p>
       )}
       <div className="flex items-center justify-end gap-2">
         <button

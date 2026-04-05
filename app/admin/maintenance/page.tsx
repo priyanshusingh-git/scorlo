@@ -60,7 +60,8 @@ async function MaintenanceControls({
       >
         <div className="mb-4 flex flex-wrap gap-2">
           <StatusBadge tone="accent">{info.totalRankingRows} rows stored</StatusBadge>
-          <StatusBadge tone="warning">Destructive maintenance action</StatusBadge>
+          <StatusBadge tone="info">Targeted batch rebuild available</StatusBadge>
+          <StatusBadge tone="warning">Full rebuild is still destructive</StatusBadge>
         </div>
         <RankingRebuildButton />
       </SectionBlock>
@@ -115,6 +116,11 @@ async function MaintenanceLogs({
                   <StatusBadge tone="info">{entry.admin_email}</StatusBadge>
                 </div>
                 <div className="mt-2 text-sm font-semibold text-ink">{entry.created_at}</div>
+                <div className="mt-1 text-sm text-slate">
+                  {entry.after_json && "passing_year" in entry.after_json && entry.after_json.passing_year
+                    ? `Batch ${String(entry.after_json.passing_year)} rebuild`
+                    : "Full rebuild"}
+                </div>
                 <div className="mt-1 text-sm text-slate">
                   {entry.after_json && "total_rows" in entry.after_json
                     ? `Rows after rebuild: ${String(entry.after_json.total_rows)}`
