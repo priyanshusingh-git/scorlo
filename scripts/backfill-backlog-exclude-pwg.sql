@@ -1,51 +1,60 @@
-WITH grace_subjects AS (
+WITH semester_carry_subjects AS (
   SELECT DISTINCT
-    rs.id AS result_session_id,
-    UPPER(TRIM(sub.code)) AS subject_code
-  FROM result_sessions rs
-  JOIN semester_results sr ON sr.result_session_id = rs.id
-  JOIN subject_results sub ON sub.semester_result_id = sr.id
-  WHERE sub.code IS NOT NULL
-    AND TRIM(sub.code) <> ''
-    AND UPPER(COALESCE(sub.grade, '')) = 'E#'
-),
-effective_carry_subjects AS (
-  SELECT
     rs.student_id,
     rs.id AS result_session_id,
+    sr.id AS semester_result_id,
+    sr.semester_no,
     UPPER(TRIM(carry.subject_code)) AS subject_code
-  FROM result_sessions rs
+  FROM semester_results sr
+  JOIN result_sessions rs ON rs.id = sr.result_session_id
   CROSS JOIN LATERAL UNNEST(rs.cop_subjects) AS carry(subject_code)
-  LEFT JOIN grace_subjects gs
-    ON gs.result_session_id = rs.id
-   AND gs.subject_code = UPPER(TRIM(carry.subject_code))
   WHERE TRIM(COALESCE(carry.subject_code, '')) <> ''
-    AND gs.subject_code IS NULL
+    AND EXISTS (
+      SELECT 1
+      FROM subject_results sub
+      WHERE sub.semester_result_id = sr.id
+        AND sub.code IS NOT NULL
+        AND TRIM(sub.code) <> ''
+        AND UPPER(TRIM(sub.code)) = UPPER(TRIM(carry.subject_code))
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM subject_results sub
+      WHERE sub.semester_result_id = sr.id
+        AND sub.code IS NOT NULL
+        AND TRIM(sub.code) <> ''
+        AND UPPER(TRIM(sub.code)) = UPPER(TRIM(carry.subject_code))
+        AND UPPER(COALESCE(sub.grade, '')) = 'E#'
+    )
 ),
-latest_sessions AS (
-  SELECT DISTINCT ON (rs.student_id)
+latest_semesters AS (
+  SELECT DISTINCT ON (rs.student_id, sr.semester_no)
     rs.student_id,
-    rs.id AS result_session_id
-  FROM result_sessions rs
+    sr.id AS semester_result_id,
+    sr.semester_no
+  FROM semester_results sr
+  JOIN result_sessions rs ON rs.id = sr.result_session_id
   ORDER BY
     rs.student_id,
+    sr.semester_no,
     rs.session_id DESC NULLS LAST,
     CASE WHEN UPPER(COALESCE(rs.session_type, '')) = 'BACK' THEN 1 ELSE 0 END DESC,
-    rs.id DESC
+    sr.date_of_declaration DESC NULLS LAST,
+    sr.id DESC
 ),
 current_codes AS (
   SELECT DISTINCT
     ls.student_id,
-    ecs.subject_code
-  FROM latest_sessions ls
-  LEFT JOIN effective_carry_subjects ecs
-    ON ecs.result_session_id = ls.result_session_id
+    scs.subject_code
+  FROM latest_semesters ls
+  LEFT JOIN semester_carry_subjects scs
+    ON scs.semester_result_id = ls.semester_result_id
 ),
 historical_codes AS (
   SELECT DISTINCT
     student_id,
     subject_code
-  FROM effective_carry_subjects
+  FROM semester_carry_subjects
 ),
 current_counts AS (
   SELECT

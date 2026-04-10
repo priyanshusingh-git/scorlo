@@ -129,47 +129,6 @@ export async function createSupportIssue({
   return rows[0]?.id ?? null;
 }
 
-export async function listSupportIssuesForStudent(appUserId: number) {
-  await ensureSupportIssuesTable();
-  const sql = getSql();
-  const page = 1;
-  const pageSize = 20;
-
-  const totalRows = (await sql`
-    SELECT COUNT(*)::int AS total
-    FROM support_issues
-    WHERE app_user_id = ${appUserId}
-      AND status IN ('open', 'in_progress')
-  `) as Array<{ total: number }>;
-
-  const rows = (await sql`
-    SELECT
-      id::int,
-      issue_type,
-      title,
-      description,
-      roll_no,
-      link_status,
-      status,
-      admin_notes,
-      created_at::text,
-      updated_at::text,
-      resolved_at::text
-    FROM support_issues
-    WHERE app_user_id = ${appUserId}
-      AND status IN ('open', 'in_progress')
-    ORDER BY created_at DESC, id DESC
-    LIMIT ${pageSize}
-  `) as StudentSupportIssueRow[];
-
-  return {
-    rows,
-    totalCount: totalRows[0]?.total ?? 0,
-    page,
-    pageSize
-  } satisfies SupportIssueListResult<StudentSupportIssueRow>;
-}
-
 export async function listSupportIssuesForStudentPaginated({
   appUserId,
   page = 1,
@@ -189,7 +148,6 @@ export async function listSupportIssuesForStudentPaginated({
     SELECT COUNT(*)::int AS total
     FROM support_issues
     WHERE app_user_id = ${appUserId}
-      AND status IN ('open', 'in_progress')
   `) as Array<{ total: number }>;
 
   const rows = (await sql`
@@ -207,7 +165,6 @@ export async function listSupportIssuesForStudentPaginated({
       resolved_at::text
     FROM support_issues
     WHERE app_user_id = ${appUserId}
-      AND status IN ('open', 'in_progress')
     ORDER BY created_at DESC, id DESC
     LIMIT ${normalizedPageSize}
     OFFSET ${offset}
