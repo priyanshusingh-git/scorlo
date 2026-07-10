@@ -5,6 +5,8 @@ import { getSessionCookieCleanupNames, getSessionCookieName } from "@/lib/sessio
 function isPublicPath(pathname: string) {
   return (
     pathname === "/login" ||
+    pathname === "/terms" ||
+    pathname === "/privacy" ||
     pathname === "/manifest.webmanifest" ||
     pathname.startsWith("/icons/") ||
     pathname.startsWith("/_next/") ||
