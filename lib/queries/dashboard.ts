@@ -59,6 +59,8 @@ export type DashboardPayload = {
     formatted_declaration_date: string;
     status_badge_label: string;
     status_badge_tone: "warning" | "accent" | "success";
+    percentage: string | null;
+    max_marks: number | null;
     subjects: Array<{
       id: number;
       code: string | null;
@@ -68,6 +70,7 @@ export type DashboardPayload = {
       total_marks: number | null;
       grade: string | null;
       back_paper: string | null;
+      type: string | null;
       status_label: string;
       status_class_name: string;
     }>;
@@ -118,7 +121,10 @@ type MetricRow = {
   cleared_backs: number;
 };
 
-type SemesterRow = Omit<DashboardPayload["semesters"][number], "subjects" | "formatted_declaration_date" | "status_badge_label" | "status_badge_tone">;
+type SemesterRow = Omit<
+  DashboardPayload["semesters"][number],
+  "subjects" | "formatted_declaration_date" | "status_badge_label" | "status_badge_tone" | "percentage" | "max_marks"
+>;
 
 type SubjectRow = Omit<DashboardPayload["semesters"][number]["subjects"][number], "status_label" | "status_class_name"> & {
   semester_result_id: number;
@@ -133,7 +139,7 @@ type CacheRow = {
  * Bump this version whenever the shape of `StudentAppSnapshot` changes.
  * Cached blobs that don't match will be treated as a cache miss and rebuilt.
  */
-const SNAPSHOT_VERSION = 7;
+const SNAPSHOT_VERSION = 9;
 
 let cacheSchemaPromise: Promise<void> | null = null;
 
@@ -199,19 +205,27 @@ function getEffectiveCarrySubjects(
   subjects: Array<{ code: string | null; grade: string | null }>
 ) {
   const graceSubjectCodes = getGraceSubjectCodes(subjects);
-  const semesterSubjectCodes = new Set(
+  const passedSubjectCodes = new Set(
     subjects
-      .filter((subject) => subject.code)
-      .map((subject) => subject.code!.trim().toUpperCase())
+      .filter((sub) => {
+        if (!sub.code || !sub.grade) return false;
+        const g = sub.grade.trim().toUpperCase();
+        return g !== "F" && g !== "AB" && g !== "ABSENT" && g !== "WH" && g !== "UFM";
+      })
+      .map((sub) => sub.code!.trim().toUpperCase())
   );
 
   return copSubjects.filter((code) => {
     const normalizedCode = code.trim().toUpperCase();
-    return semesterSubjectCodes.has(normalizedCode) && !graceSubjectCodes.has(normalizedCode);
+    return !passedSubjectCodes.has(normalizedCode) && !graceSubjectCodes.has(normalizedCode);
   });
 }
 
-function getSubjectStatus(subject: SubjectRow, copSubjects: string[]) {
+function getSubjectStatus(
+  subject: SubjectRow,
+  copSubjects: string[],
+  wasFailedPreviously: boolean
+) {
   const grade = normalizeGrade(subject.grade);
 
   if (grade === "E#") {
@@ -241,8 +255,15 @@ function getSubjectStatus(subject: SubjectRow, copSubjects: string[]) {
     };
   }
 
+  if (wasFailedPreviously) {
+    return {
+      label: "Cleared",
+      className: "text-success"
+    };
+  }
+
   return {
-    label: "Cleared",
+    label: "Pass",
     className: "text-success"
   };
 }
@@ -252,7 +273,15 @@ function getSemesterStatus(semester: {
   cop_subjects: string[];
   subjects: Array<{ code: string | null; grade: string | null }>;
 }) {
-  const activeCarryCount = getEffectiveCarrySubjects(semester.cop_subjects, semester.subjects).length;
+  const failedSubjectsCount = semester.subjects.filter((sub) => {
+    const g = normalizeGrade(sub.grade);
+    return g === "F" || g === "AB" || g === "ABSENT";
+  }).length;
+
+  const activeCarryCount = Math.max(
+    failedSubjectsCount,
+    getEffectiveCarrySubjects(semester.cop_subjects, semester.subjects).length
+  );
   const hasGraceClear = semester.subjects.some((subject) => {
     return normalizeGrade(subject.grade) === "E#";
   });
@@ -272,9 +301,9 @@ function getSemesterStatus(semester: {
     };
   }
 
-  if (rawStatus.includes("PASS")) {
+  if (rawStatus.includes("PASS") || rawStatus.replace(/\s+/g, "").includes("CP(0)")) {
     return {
-      label: "Cleared",
+      label: "Pass",
       tone: "success" as const
     };
   }
@@ -632,40 +661,119 @@ async function buildDashboardDataForStudent(studentId: number): Promise<Dashboar
         sub.external_marks,
         sub.total_marks,
         sub.grade,
-        sub.back_paper
+        sub.back_paper,
+        sub.type,
+        sr.semester_no
       FROM subject_results sub
       JOIN semester_results sr ON sr.id = sub.semester_result_id
       JOIN result_sessions rs ON rs.id = sr.result_session_id
       WHERE rs.student_id = ${studentId}
-      ORDER BY sub.semester_result_id DESC, sub.code ASC
-    `) as SubjectRow[]));
+      ORDER BY sr.semester_no DESC, sub.code ASC
+    `) as Array<SubjectRow & { semester_no: number; type: string | null }>));
+
+  const copSubjectsRows = (semesterIds.size === 0
+    ? []
+    : ((await sql`
+      SELECT sr.semester_no, rs.cop_subjects
+      FROM semester_results sr
+      JOIN result_sessions rs ON rs.id = sr.result_session_id
+      WHERE rs.student_id = ${studentId}
+    `) as Array<{ semester_no: number; cop_subjects: string[] }>));
+
+  const copSubjectsBySemNo = new Map<number, Set<string>>();
+  for (const row of copSubjectsRows) {
+    const set = copSubjectsBySemNo.get(row.semester_no) ?? new Set<string>();
+    for (const code of row.cop_subjects ?? []) {
+      set.add(code.trim().toUpperCase());
+    }
+    copSubjectsBySemNo.set(row.semester_no, set);
+  }
 
   const subjectsBySemester = new Map<number, DashboardPayload["semesters"][number]["subjects"]>();
+  const semesterStats = new Map<number, { max_marks: number | null; percentage: string | null }>();
+  
+  const subjectsBySemNo = new Map<number, Array<SubjectRow & { semester_no: number; type: string | null }>>();
   for (const subject of subjectRows) {
-    if (!semesterIds.has(subject.semester_result_id)) continue;
+    const list = subjectsBySemNo.get(subject.semester_no) ?? [];
+    list.push(subject);
+    subjectsBySemNo.set(subject.semester_no, list);
+  }
 
-    const semester = semesters.find((entry) => entry.id === subject.semester_result_id);
-    const effectiveCarrySubjects = getEffectiveCarrySubjects(
-      semester?.cop_subjects ?? [],
-      subjectRows
-        .filter((entry) => entry.semester_result_id === subject.semester_result_id)
-        .map((entry) => ({ code: entry.code, grade: entry.grade }))
-    );
-    const subjectStatus = getSubjectStatus(subject, effectiveCarrySubjects);
-    const entry = subjectsBySemester.get(subject.semester_result_id) ?? [];
-    entry.push({
-      id: subject.id,
-      code: subject.code,
-      name: subject.name,
-      internal_marks: subject.internal_marks,
-      external_marks: subject.external_marks,
-      total_marks: subject.total_marks,
-      grade: subject.grade,
-      back_paper: subject.back_paper,
-      status_label: subjectStatus.label,
-      status_class_name: subjectStatus.className
+  for (const semester of semesters) {
+    const semNo = semester.semester_no;
+    const semSubjects = subjectsBySemNo.get(semNo) ?? [];
+
+    const sorted = [...semSubjects].sort((a, b) => b.semester_result_id - a.semester_result_id);
+
+    const uniqueSubjects: Array<SubjectRow & { semester_no: number; type: string | null }> = [];
+    const seenCodes = new Set<string>();
+    for (const sub of sorted) {
+      if (!sub.code) continue;
+      const normalizedCode = sub.code.trim().toUpperCase();
+      if (seenCodes.has(normalizedCode)) continue;
+      seenCodes.add(normalizedCode);
+      uniqueSubjects.push(sub);
+    }
+
+    const typeOrder = { Theory: 1, Practical: 2 };
+    uniqueSubjects.sort((a, b) => {
+      const typeA = a.type ?? "Other";
+      const typeB = b.type ?? "Other";
+      const orderA = typeOrder[typeA as keyof typeof typeOrder] ?? 3;
+      const orderB = typeOrder[typeB as keyof typeof typeOrder] ?? 3;
+
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return (a.code ?? "").localeCompare(b.code ?? "");
     });
-    subjectsBySemester.set(subject.semester_result_id, entry);
+
+    const allCopSubjects = Array.from(copSubjectsBySemNo.get(semNo) ?? new Set<string>());
+
+    const effectiveCarrySubjects = getEffectiveCarrySubjects(
+      allCopSubjects,
+      uniqueSubjects.map((sub) => ({ code: sub.code, grade: sub.grade }))
+    );
+
+    const compiledSubjects = uniqueSubjects.map((sub) => {
+      const wasFailedPreviously = semSubjects.some((item) => {
+        if (!item.code || item.code.trim().toUpperCase() !== sub.code?.trim().toUpperCase()) {
+          return false;
+        }
+        const g = normalizeGrade(item.grade);
+        return g === "F" || g === "AB" || g === "ABSENT";
+      });
+
+      const subjectStatus = getSubjectStatus(sub, effectiveCarrySubjects, wasFailedPreviously);
+      return {
+        id: sub.id,
+        code: sub.code,
+        name: sub.name,
+        internal_marks: sub.internal_marks,
+        external_marks: sub.external_marks,
+        total_marks: sub.total_marks,
+        grade: sub.grade,
+        back_paper: sub.back_paper,
+        type: sub.type,
+        status_label: subjectStatus.label,
+        status_class_name: subjectStatus.className
+      };
+    });
+
+    subjectsBySemester.set(semester.id, compiledSubjects);
+
+    const creditSubjects = uniqueSubjects.filter((sub) => {
+      if (!sub.type) return false;
+      const t = sub.type.trim();
+      return t === "Theory" || t === "Practical";
+    });
+    const semesterMaxMarks = creditSubjects.length > 0 ? creditSubjects.length * 100 : null;
+    const percentage =
+      semester.total_marks_obtained !== null && semesterMaxMarks !== null && semesterMaxMarks > 0
+        ? ((semester.total_marks_obtained / semesterMaxMarks) * 100).toFixed(2)
+        : null;
+
+    semesterStats.set(semester.id, { max_marks: semesterMaxMarks, percentage });
   }
 
   const latestSgpa =
@@ -681,11 +789,15 @@ async function buildDashboardDataForStudent(studentId: number): Promise<Dashboar
       subjects
     });
 
+    const stats = semesterStats.get(semester.id) ?? { max_marks: null, percentage: null };
+
     return {
       ...semester,
       formatted_declaration_date: formatDeclarationDate(semester.date_of_declaration),
       status_badge_label: semesterStatus.label,
       status_badge_tone: semesterStatus.tone,
+      percentage: stats.percentage,
+      max_marks: stats.max_marks,
       subjects
     };
   });

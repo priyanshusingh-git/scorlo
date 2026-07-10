@@ -71,23 +71,20 @@ export function ResultsSummaryActions({ snapshot }: { snapshot: StudentAppSnapsh
       let y = margin;
 
       const colors = {
-        ink: [18, 32, 53] as const,
-        accent: [25, 84, 166] as const,
-        gold: [186, 139, 48] as const,
-        border: [219, 226, 235] as const,
-        muted: [91, 108, 128] as const,
-        panel: [246, 248, 251] as const,
+        ink: [33, 37, 41] as const,       // Dark Charcoal
+        accent: [58, 80, 107] as const,    // Professional Steel Blue
+        gold: [186, 139, 48] as const,     // Gold for CGPA
+        border: [222, 226, 230] as const,  // Light Gray
+        muted: [108, 117, 125] as const,   // Muted Gray
+        panel: [248, 249, 250] as const,   // Very Light Gray
+        red: [220, 53, 69] as const,       // Soft Red
+        green: [40, 167, 69] as const,     // Soft Green
+        blue: [0, 91, 187] as const,       // Professional Blue for PWG
         white: [255, 255, 255] as const
       };
 
       const setTextColor = (rgb: readonly [number, number, number]) => {
         doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-      };
-
-      const ensureSpace = (height: number) => {
-        if (y + height <= pageHeight - margin) return;
-        doc.addPage();
-        y = margin;
       };
 
       const writeText = (
@@ -123,245 +120,266 @@ export function ResultsSummaryActions({ snapshot }: { snapshot: StudentAppSnapsh
         return drawY;
       };
 
-      const drawMetricCard = (
-        x: number,
-        top: number,
-        width: number,
-        label: string,
-        value: string,
-        tone: "accent" | "gold" | "ink"
-      ) => {
-        const height = 72;
-        const toneColor =
-          tone === "accent" ? colors.accent : tone === "gold" ? colors.gold : colors.ink;
+      const ensureSpace = (height: number) => {
+        if (y + height <= pageHeight - margin - 35) return;
+        doc.addPage();
+        y = margin;
 
-        doc.setFillColor(colors.panel[0], colors.panel[1], colors.panel[2]);
-        doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
-        doc.roundedRect(x, top, width, height, 14, 14, "FD");
-
-        doc.setFillColor(toneColor[0], toneColor[1], toneColor[2]);
-        doc.roundedRect(x + 14, top + 15, 5, 42, 4, 4, "F");
-
-        writeText(label, {
-          x: x + 30,
-          y: top + 29,
-          size: 9,
+        // Draw running header on new pages
+        writeText("SCORLO ACADEMIC REPORT", {
+          size: 7.5,
           color: colors.muted,
           weight: "bold",
-          lineGap: 11,
-          maxWidth: width - 42
+          lineGap: 9
         });
-        writeText(value, {
-          x: x + 30,
-          y: top + 53,
-          size: 19,
-          color: colors.ink,
-          weight: "bold",
-          lineGap: 18,
-          maxWidth: width - 42
-        });
+        doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+        doc.line(margin, y + 4, pageWidth - margin, y + 4);
+        y += 16;
       };
 
-      const drawSectionLabel = (label: string) => {
-        ensureSpace(28);
-        writeText(label.toUpperCase(), {
-          size: 9,
-          color: colors.accent,
-          weight: "bold",
-          lineGap: 10
-        });
-        y += 4;
-      };
-
-      doc.setFillColor(colors.ink[0], colors.ink[1], colors.ink[2]);
-      doc.roundedRect(margin, y, contentWidth, 132, 24, 24, "F");
-
-      writeText("SCORLO", {
-        x: margin + 24,
-        y: y + 28,
-        size: 10,
-        color: colors.white,
-        weight: "bold",
-        lineGap: 11
-      });
-      writeText("Academic result summary", {
-        x: margin + 24,
-        y: y + 56,
-        size: 24,
-        color: colors.white,
-        weight: "bold",
-        lineGap: 24,
-        maxWidth: contentWidth - 160
-      });
-      writeText(
-        `${dashboard.student.name ?? "Student"} • ${dashboard.student.roll_no}`,
-        {
-          x: margin + 24,
-          y: y + 86,
-          size: 11,
-          color: [220, 229, 239],
-          lineGap: 13,
-          maxWidth: contentWidth - 48
-        }
-      );
-
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(pageWidth - margin - 126, y + 20, 102, 34, 16, 16, "F");
-      writeText("Generated", {
-        x: pageWidth - margin - 112,
-        y: y + 35,
-        size: 8,
-        color: colors.muted,
-        weight: "bold",
-        lineGap: 10,
-        maxWidth: 82
-      });
-      writeText(formatDeclarationDate(new Date().toISOString()), {
-        x: pageWidth - margin - 112,
-        y: y + 49,
-        size: 10,
-        color: colors.ink,
-        weight: "bold",
-        lineGap: 11,
-        maxWidth: 82
-      });
-
-      y += 156;
-
-      drawSectionLabel("Student");
-      writeText(`${dashboard.student.name ?? "Not available"}`, {
-        size: 17,
+      // Header Block (Clean, Modern Typography)
+      writeText("SCORLO ACADEMIC REPORT SUMMARY", {
+        size: 14,
+        color: colors.accent,
         weight: "bold",
         lineGap: 18
       });
-      writeText(
-        `${dashboard.student.roll_no} • ${dashboard.student.branch_name ?? "Branch unavailable"} • ${dashboard.student.course_name ?? "Course unavailable"}`,
-        {
-          size: 11,
-          color: colors.muted,
-          lineGap: 15
-        }
-      );
-      writeText(dashboard.student.institute_name ?? "Institute unavailable", {
-        size: 11,
-        color: colors.muted,
-        lineGap: 15
+      y += 4;
+      doc.setDrawColor(colors.accent[0], colors.accent[1], colors.accent[2]);
+      doc.setLineWidth(1.5);
+      doc.line(margin, y, pageWidth - margin, y);
+      doc.setLineWidth(1.0);
+      y += 16;
+
+      // Student Details Grid
+      ensureSpace(80);
+      const col1Width = 240;
+      const startCol2 = margin + col1Width;
+      
+      // Row 1
+      writeText("Student Name:", { x: margin, y, size: 9, color: colors.muted, weight: "bold", maxWidth: 80 });
+      writeText(dashboard.student.name ?? "Not available", { x: margin + 80, y, size: 9.5, color: colors.ink, weight: "bold", maxWidth: col1Width - 90 });
+      
+      writeText("Roll Number:", { x: startCol2, y, size: 9, color: colors.muted, weight: "bold", maxWidth: 80 });
+      writeText(dashboard.student.roll_no, { x: startCol2 + 80, y, size: 9.5, color: colors.ink, weight: "bold", maxWidth: col1Width - 90 });
+      
+      y += 18;
+
+      // Row 2
+      writeText("Course Name:", { x: margin, y, size: 9, color: colors.muted, weight: "bold", maxWidth: 80 });
+      writeText(dashboard.student.course_name ?? "Not available", { x: margin + 80, y, size: 9, color: colors.ink, maxWidth: col1Width - 90 });
+      
+      writeText("Branch Name:", { x: startCol2, y, size: 9, color: colors.muted, weight: "bold", maxWidth: 80 });
+      writeText(dashboard.student.branch_name ?? "Not available", { x: startCol2 + 80, y, size: 9, color: colors.ink, maxWidth: col1Width - 90 });
+      
+      y += 18;
+
+      // Row 3
+      writeText("Institute:", { x: margin, y, size: 9, color: colors.muted, weight: "bold", maxWidth: 80 });
+      writeText(dashboard.student.institute_name ?? "Not available", { x: margin + 80, y, size: 9, color: colors.ink, maxWidth: contentWidth - 90 });
+      
+      y += 24;
+
+      // Summary Divider
+      doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 12;
+
+      // Overall Standing Bar
+      ensureSpace(35);
+      doc.setFillColor(colors.panel[0], colors.panel[1], colors.panel[2]);
+      doc.roundedRect(margin, y, contentWidth, 24, 4, 4, "F");
+
+      const stats = [
+        { label: "CGPA:", value: dashboard.metrics.cgpa ?? "--" },
+        { label: "Overall %:", value: dashboard.metrics.overall_percentage ?? "--" },
+        { label: "Active Backs:", value: String(dashboard.metrics.active_backs) },
+        { label: "Cleared Backs:", value: String(dashboard.metrics.cleared_backs) }
+      ];
+
+      let statX = margin + 12;
+      for (const stat of stats) {
+        writeText(stat.label, { x: statX, y: y + 15, size: 8.5, color: colors.muted, weight: "bold" });
+        statX += doc.getTextWidth(stat.label) + 4;
+        writeText(stat.value, { x: statX, y: y + 15, size: 9, color: colors.ink, weight: "bold" });
+        statX += doc.getTextWidth(stat.value) + 24;
+      }
+      y += 36;
+
+      // Semester Archive (Header)
+      writeText("SEMESTER WISE ACADEMIC DETAILS", {
+        size: 10,
+        color: colors.accent,
+        weight: "bold",
+        lineGap: 14
       });
+      y += 6;
 
-      y += 10;
-      ensureSpace(164);
-      drawSectionLabel("Academic standing");
-      const cardGap = 12;
-      const cardWidth = (contentWidth - cardGap) / 2;
-      const metricsTop = y;
-      drawMetricCard(margin, metricsTop, cardWidth, "CGPA", dashboard.metrics.cgpa ?? "--", "accent");
-      drawMetricCard(
-        margin + cardWidth + cardGap,
-        metricsTop,
-        cardWidth,
-        "Overall percentage",
-        dashboard.metrics.overall_percentage ?? "--",
-        "gold"
-      );
-      drawMetricCard(
-        margin,
-        metricsTop + 84,
-        cardWidth,
-        "Active backs",
-        String(dashboard.metrics.active_backs),
-        dashboard.metrics.active_backs > 0 ? "gold" : "ink"
-      );
-      drawMetricCard(
-        margin + cardWidth + cardGap,
-        metricsTop + 84,
-        cardWidth,
-        "Cleared backs",
-        String(dashboard.metrics.cleared_backs),
-        "ink"
-      );
-      y = metricsTop + 170;
-
-      drawSectionLabel("Semester archive");
-      ensureSpace(34);
-
-      const tableColumns = [
-        { label: "Sem", width: 44 },
-        { label: "SGPA", width: 74 },
-        { label: "Status", width: 128 },
-        { label: "Declared", width: 100 }
-      ] as const;
-
+      // Table Header Helper
       const drawTableHeader = () => {
+        ensureSpace(22);
         doc.setFillColor(colors.panel[0], colors.panel[1], colors.panel[2]);
         doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
-        doc.roundedRect(margin, y, contentWidth, 28, 10, 10, "FD");
+        doc.roundedRect(margin, y, contentWidth, 18, 4, 4, "FD");
 
-        let x = margin + 14;
-        for (const column of tableColumns) {
-          writeText(column.label, {
-            x,
-            y: y + 18,
-            size: 9,
-            color: colors.muted,
-            weight: "bold",
-            lineGap: 10,
-            maxWidth: column.width - 8
-          });
-          x += column.width;
-        }
-        y += 40;
-      };
-
-      drawTableHeader();
-
-      for (const semester of dashboard.semesters) {
-        ensureSpace(34);
-        if (y === margin) {
-          drawSectionLabel("Semester archive");
-          drawTableHeader();
-        }
-
-        doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
-        doc.line(margin, y + 20, pageWidth - margin, y + 20);
-
-        let x = margin + 14;
-        const row = [
-          String(semester.semester_no),
-          semester.sgpa ?? "--",
-          semester.status_badge_label,
-          semester.formatted_declaration_date || "Unavailable"
+        let headerX = margin + 8;
+        const columns = [
+          { label: "Code", width: 60 },
+          { label: "Subject Name", width: 180 },
+          { label: "Type", width: 50 },
+          { label: "Int", width: 40 },
+          { label: "Ext", width: 40 },
+          { label: "Tot", width: 40 },
+          { label: "Gr", width: 30 },
+          { label: "Status", width: 70 }
         ];
 
-        row.forEach((value, index) => {
-          const column = tableColumns[index];
-          writeText(value, {
-            x,
-            y: y + 14,
-            size: 10.5,
-            color: index === 2 ? colors.accent : colors.ink,
-            weight: index === 0 ? "bold" : "normal",
-            lineGap: 11,
-            maxWidth: column.width - 8
+        for (const col of columns) {
+          writeText(col.label, {
+            x: headerX,
+            y: y + 12,
+            size: 8,
+            color: colors.muted,
+            weight: "bold",
+            lineGap: 9,
+            maxWidth: col.width - 2
           });
-          x += column.width;
-        });
+          headerX += col.width;
+        }
+        y += 18;
+      };
 
-        y += 30;
+      for (const semester of dashboard.semesters) {
+        ensureSpace(40);
+        
+        // Draw Semester Banner Info
+        doc.setFillColor(colors.panel[0], colors.panel[1], colors.panel[2]);
+        doc.rect(margin, y, contentWidth, 20, "F");
+        doc.setDrawColor(colors.accent[0], colors.accent[1], colors.accent[2]);
+        doc.line(margin, y, margin, y + 20); // Left border accent
+
+        const semTitle = `Semester ${semester.semester_no}`;
+        const semDetails = `SGPA: ${semester.sgpa ?? "--"}  |  Marks: ${semester.total_marks_obtained ?? "--"}${semester.max_marks !== null ? ` / ${semester.max_marks}` : ""}${semester.percentage ? ` (${semester.percentage}%)` : ""}  |  Session: ${semester.session_id || "--"} (${semester.session_type || "--"})`;
+        
+        writeText(semTitle, {
+          x: margin + 8,
+          y: y + 13,
+          size: 9.5,
+          color: colors.accent,
+          weight: "bold",
+          maxWidth: 100
+        });
+        
+        writeText(semDetails, {
+          x: margin + 120,
+          y: y + 13,
+          size: 8.5,
+          color: colors.muted,
+          weight: "bold",
+          maxWidth: contentWidth - 130
+        });
+        
+        y += 24;
+
+        // Draw Table Header
+        drawTableHeader();
+
+        // Subjects List
+        if (semester.subjects.length === 0) {
+          ensureSpace(20);
+          writeText("Subject-level marks are not available for this semester.", {
+            x: margin + 12,
+            size: 8.5,
+            color: colors.muted,
+            lineGap: 12
+          });
+          y += 12;
+        } else {
+          for (const sub of semester.subjects) {
+            const nameWidth = 180;
+            const nameLines = doc.splitTextToSize(sub.name ?? "Untitled subject", nameWidth - 2) as string[];
+            const rowHeight = 16 + (nameLines.length - 1) * 9;
+
+            ensureSpace(rowHeight);
+
+            let rowX = margin + 8;
+            const isBack = sub.grade === "F" || sub.grade === "AB" || sub.grade === "ABSENT" || sub.status_label === "Carry paper";
+            const isPwg = (sub.grade ?? "").endsWith("#") || sub.status_label === "Grace Clear";
+
+            const rowColor = isBack
+              ? colors.red
+              : isPwg
+              ? colors.blue
+              : colors.ink;
+
+            const statusColor = isBack
+              ? colors.red
+              : isPwg
+              ? colors.blue
+              : sub.status_label === "Review"
+              ? colors.gold
+              : colors.green;
+
+            const columns = [
+              { value: sub.code ?? "--", width: 60, weight: "bold" as const, color: rowColor },
+              { value: sub.name ?? "Untitled subject", width: 180, color: rowColor },
+              { value: sub.type ?? "--", width: 50, color: rowColor },
+              { value: String(sub.internal_marks ?? "--"), width: 40, color: rowColor },
+              { value: String(sub.external_marks ?? "--"), width: 40, color: rowColor },
+              { value: String(sub.total_marks ?? "--"), width: 40, color: rowColor },
+              { value: sub.grade ?? "--", width: 30, weight: "bold" as const, color: rowColor },
+              { 
+                value: sub.status_label ?? "--", 
+                width: 70, 
+                color: statusColor,
+                weight: "bold" as const
+              }
+            ];
+
+            for (const col of columns) {
+              writeText(col.value, {
+                x: rowX,
+                y: y + 11,
+                size: 8,
+                color: col.color ?? colors.ink,
+                weight: col.weight ?? "normal",
+                lineGap: 9,
+                maxWidth: col.width - 2
+              });
+              rowX += col.width;
+            }
+
+            doc.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
+            doc.line(margin, y + rowHeight, pageWidth - margin, y + rowHeight);
+            y += rowHeight;
+          }
+        }
+        y += 12; // Gap between semesters
       }
 
-      writeText("Prepared from your latest Scorlo academic snapshot.", {
-        y: pageHeight - margin + 2,
-        x: margin,
-        size: 8.5,
-        color: colors.muted,
-        maxWidth: contentWidth,
-        lineGap: 10
-      });
+      // Add Running Footers
+      const totalPages = doc.internal.pages.length - 1;
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(colors.muted[0], colors.muted[1], colors.muted[2]);
+        doc.text(
+          `Page ${i} of ${totalPages}`,
+          pageWidth - margin - 45,
+          pageHeight - 20
+        );
+        doc.text(
+          "Scorlo Academic Transcript Summary • Generated directly from Scorlo Academic Database.",
+          margin,
+          pageHeight - 20
+        );
+      }
 
       const safeName = sanitizeFileName(dashboard.student.name ?? dashboard.student.roll_no);
-      doc.save(`scorlo-result-summary-${safeName || "student"}.pdf`);
-    } catch {
-      // Ignore export errors here; the button state is kept stable and the UI remains unchanged.
+      doc.save(`scorlo-transcript-${safeName || "student"}.pdf`);
+    } catch (error) {
+      console.error("PDF Export error:", error);
     } finally {
       setPendingExport(false);
     }

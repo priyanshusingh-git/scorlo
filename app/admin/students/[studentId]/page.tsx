@@ -93,10 +93,13 @@ export default async function AdminStudentProfilePage({ params }: PageProps) {
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="text-sm font-semibold text-ink">Semester {semester.semester_no}</div>
-                  <StatusBadge tone="info">{normalizeSemesterStatus(semester.result_status)}</StatusBadge>
+                  <StatusBadge tone={normalizeSemesterStatusTone(semester.result_status, detail.active_backs)}>
+                    {normalizeSemesterStatus(semester.result_status, detail.active_backs)}
+                  </StatusBadge>
                 </div>
-                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
                   <InfoTile label="SGPA" value={semester.sgpa ?? "--"} />
+                  <InfoTile label="Percentage" value={semester.percentage ? `${semester.percentage}%` : "--"} />
                   <InfoTile
                     label="Branch rank"
                     value={formatRankValue(branchSemesterRank?.self_rank ?? null)}
@@ -162,7 +165,7 @@ function formatRankValue(rank: number | null) {
   return `#${rank}`;
 }
 
-function normalizeSemesterStatus(value: string | null) {
+function normalizeSemesterStatus(value: string | null, activeBacks: number) {
   const raw = (value ?? "").trim();
   const normalized = raw.toUpperCase();
 
@@ -174,5 +177,36 @@ function normalizeSemesterStatus(value: string | null) {
     return "Pass";
   }
 
+  if (normalized.includes("PWG")) {
+    return "PWG";
+  }
+
+  if (activeBacks === 0 && (normalized.includes("CP") || normalized.includes("PCP"))) {
+    return "Cleared";
+  }
+
   return raw || "Unknown";
+}
+
+function normalizeSemesterStatusTone(value: string | null, activeBacks: number) {
+  const raw = (value ?? "").trim();
+  const normalized = raw.toUpperCase();
+
+  if (!normalized || normalized === "PASS" || normalized.replace(/\s+/g, "").includes("CP(0)")) {
+    return "success";
+  }
+
+  if (normalized.includes("PWG")) {
+    return "accent";
+  }
+
+  if (activeBacks === 0 && (normalized.includes("CP") || normalized.includes("PCP"))) {
+    return "success";
+  }
+
+  if (normalized.includes("CP") || normalized.includes("PCP")) {
+    return "warning";
+  }
+
+  return "info";
 }

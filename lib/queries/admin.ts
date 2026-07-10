@@ -128,6 +128,10 @@ export type AdminStudentDetail = AdminStudentSearchRow & {
     session_id: string | null;
     session_type: string | null;
     date_of_declaration: string | null;
+    total_marks_obtained: number | null;
+    marks_maximum: number | null;
+    max_marks: number | null;
+    percentage: string | null;
   }>;
 };
 
@@ -586,12 +590,15 @@ export async function getAdminStudentDetailForScope(
   const recentSemesters = (await sql`
     WITH ranked_semesters AS (
       SELECT
+        sr.id AS semester_result_id,
         sr.semester_no,
         sr.sgpa::text AS sgpa,
         sr.result_status,
         rs.session_id,
         rs.session_type,
         sr.date_of_declaration::text,
+        sr.total_marks_obtained,
+        rs.marks_maximum,
         ROW_NUMBER() OVER (
           PARTITION BY sr.semester_no
           ORDER BY
@@ -605,21 +612,63 @@ export async function getAdminStudentDetailForScope(
       WHERE rs.student_id = ${studentId}
     )
     SELECT
+      semester_result_id,
       semester_no,
       sgpa,
       result_status,
       session_id,
       session_type,
-      date_of_declaration
+      date_of_declaration,
+      total_marks_obtained,
+      marks_maximum,
+      (
+        SELECT COUNT(*)::int
+        FROM subject_results sub
+        WHERE sub.semester_result_id = semester_result_id
+          AND sub.type IN ('Theory', 'Practical')
+      ) AS credit_subjects_count
     FROM ranked_semesters
     WHERE row_no = 1
     ORDER BY semester_no DESC
     LIMIT 8
-  `) as AdminStudentDetail["recent_semesters"];
+  `) as Array<{
+    semester_result_id: number;
+    semester_no: number;
+    sgpa: string | null;
+    result_status: string | null;
+    session_id: string | null;
+    session_type: string | null;
+    date_of_declaration: string | null;
+    total_marks_obtained: number | null;
+    marks_maximum: number | null;
+    credit_subjects_count: number;
+  }>;
+
+  const compiledSemesters = recentSemesters.map((sem) => {
+    const semesterMaxMarks = sem.credit_subjects_count > 0 ? sem.credit_subjects_count * 100 : null;
+
+    const percentage =
+      sem.total_marks_obtained !== null && semesterMaxMarks !== null && semesterMaxMarks > 0
+        ? ((sem.total_marks_obtained / semesterMaxMarks) * 100).toFixed(2)
+        : null;
+
+    return {
+      semester_no: sem.semester_no,
+      sgpa: sem.sgpa,
+      result_status: sem.result_status,
+      session_id: sem.session_id,
+      session_type: sem.session_type,
+      date_of_declaration: sem.date_of_declaration,
+      total_marks_obtained: sem.total_marks_obtained,
+      marks_maximum: sem.marks_maximum,
+      max_marks: semesterMaxMarks,
+      percentage
+    };
+  });
 
   return {
     ...student,
-    recent_semesters: recentSemesters
+    recent_semesters: compiledSemesters
   };
 }
 

@@ -27,7 +27,9 @@ export function SemesterCards({
                   Semester {semester.semester_no}
                 </div>
                 <div className="mt-1 text-sm text-slate">
-                  SGPA {semester.sgpa ?? "--"} • {semester.total_marks_obtained ?? "--"} marks
+                  SGPA {semester.sgpa ?? "--"} • {semester.total_marks_obtained ?? "--"}
+                  {semester.max_marks !== null ? ` / ${semester.max_marks}` : ""} marks
+                  {semester.percentage ? ` (${semester.percentage}%)` : ""}
                 </div>
               </div>
               <div className="flex items-center gap-3 self-start md:self-center">

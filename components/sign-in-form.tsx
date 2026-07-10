@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   createUserWithEmailAndPassword,
   inMemoryPersistence,
@@ -79,10 +80,12 @@ export function SignInForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     email?: string;
     password?: string;
     confirmPassword?: string;
+    agreedToTerms?: string;
   }>({});
   const [status, setStatus] = useState<{ tone: "error" | "success" | "info"; message: string } | null>(initialNotice);
   const [activeAction, setActiveAction] = useState<"submit" | "resend" | null>(null);
@@ -123,6 +126,7 @@ export function SignInForm({
       setFieldErrors({});
       setPassword("");
       setConfirmPassword("");
+      setAgreedToTerms(false);
       setShowPassword(false);
       setShowConfirmPassword(false);
       setRedirectingTo(null);
@@ -136,6 +140,7 @@ export function SignInForm({
       setFieldErrors({});
       setPassword("");
       setConfirmPassword("");
+      setAgreedToTerms(false);
       setShowPassword(false);
       setShowConfirmPassword(false);
     }
@@ -161,6 +166,7 @@ export function SignInForm({
     setFieldErrors({});
     setPassword("");
     setConfirmPassword("");
+    setAgreedToTerms(false);
     setShowPassword(false);
     setShowConfirmPassword(false);
 
@@ -169,7 +175,7 @@ export function SignInForm({
     window.history.pushState({ authMode: nextMode }, "", nextUrl);
   }
 
-  function clearFieldError(field: "email" | "password" | "confirmPassword") {
+  function clearFieldError(field: "email" | "password" | "confirmPassword" | "agreedToTerms") {
     setFieldErrors((current) => {
       if (!current[field]) return current;
 
@@ -214,7 +220,7 @@ export function SignInForm({
     setFieldErrors({});
 
     const normalizedEmail = email.trim();
-    const nextErrors: { email?: string; password?: string; confirmPassword?: string } = {};
+    const nextErrors: { email?: string; password?: string; confirmPassword?: string; agreedToTerms?: string } = {};
 
     if (!normalizedEmail) {
       nextErrors.email = "Enter your email address.";
@@ -247,6 +253,10 @@ export function SignInForm({
         nextErrors.confirmPassword = "Confirm your password.";
       } else if (password && confirmPassword !== password) {
         nextErrors.confirmPassword = "Passwords do not match.";
+      }
+
+      if (!agreedToTerms) {
+        nextErrors.agreedToTerms = "You must agree to the Terms of Service and Privacy Policy.";
       }
     }
 
@@ -497,38 +507,66 @@ export function SignInForm({
           ) : null}
 
           {isRegister ? (
-            <div>
-              <label htmlFor="confirm-password" className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-mist">
-                Confirm password
-              </label>
-              <div className="relative">
-                <input
-                  id="confirm-password"
-                  name="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(event) => {
-                    setConfirmPassword(event.target.value);
-                    clearFieldError("confirmPassword");
-                  }}
-                  placeholder="Re-enter your password"
-                  autoComplete="new-password"
-                  aria-invalid={fieldErrors.confirmPassword ? "true" : "false"}
-                  className="w-full rounded-inner border border-line bg-white px-5 py-4 pr-14 text-sm text-ink outline-none transition-all placeholder:text-mist focus:border-accent/40"
-                  minLength={6}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword((value) => !value)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-mist transition-colors hover:text-ink"
-                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
-                >
-                  {showConfirmPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
-                </button>
+            <>
+              <div>
+                <label htmlFor="confirm-password" className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em] text-mist">
+                  Confirm password
+                </label>
+                <div className="relative">
+                  <input
+                    id="confirm-password"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(event) => {
+                      setConfirmPassword(event.target.value);
+                      clearFieldError("confirmPassword");
+                    }}
+                    placeholder="Re-enter your password"
+                    autoComplete="new-password"
+                    aria-invalid={fieldErrors.confirmPassword ? "true" : "false"}
+                    className="w-full rounded-inner border border-line bg-white px-5 py-4 pr-14 text-sm text-ink outline-none transition-all placeholder:text-mist focus:border-accent/40"
+                    minLength={6}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((value) => !value)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-mist transition-colors hover:text-ink"
+                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                  </button>
+                </div>
+                {renderFieldError(fieldErrors.confirmPassword)}
               </div>
-              {renderFieldError(fieldErrors.confirmPassword)}
-            </div>
+
+              <div className="mt-4">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(event) => {
+                      setAgreedToTerms(event.target.checked);
+                      clearFieldError("agreedToTerms");
+                    }}
+                    className="mt-1 h-4 w-4 shrink-0 rounded border-line text-accent focus:ring-accent"
+                  />
+                  <span className="text-[13px] leading-relaxed text-slate">
+                    I agree to Scorlo&apos;s{" "}
+                    <Link href="/terms" target="_blank" className="font-semibold text-accent underline hover:text-accent-strong">
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy" target="_blank" className="font-semibold text-accent underline hover:text-accent-strong">
+                      Privacy Policy
+                    </Link>
+                    .
+                  </span>
+                </label>
+                {renderFieldError(fieldErrors.agreedToTerms)}
+              </div>
+            </>
           ) : null}
         </div>
       )}
@@ -643,6 +681,16 @@ export function SignInForm({
             ← Back to sign in
           </button>
         )}
+
+        <div className="flex gap-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-mist/60 mt-1">
+          <Link href="/terms" target="_blank" className="hover:text-ink transition-colors">
+            Terms
+          </Link>
+          <span>•</span>
+          <Link href="/privacy" target="_blank" className="hover:text-ink transition-colors">
+            Privacy
+          </Link>
+        </div>
       </div>
     </form>
   );

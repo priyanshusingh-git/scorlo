@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ChevronRight, LoaderCircle } from "lucide-react";
+import { AlertCircle, CalendarDays, ChevronRight, LoaderCircle } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { useToast } from "@/components/toast-provider";
 
@@ -52,9 +52,18 @@ export function LinkStudentForm({
   const [rollNo, setRollNo] = useState(link?.roll_no ?? "");
   const [dob, setDob] = useState("");
   const [pending, setPending] = useState(false);
+  const [consentedToLink, setConsentedToLink] = useState(false);
+  const [consentError, setConsentError] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setConsentError("");
+
+    if (!consentedToLink) {
+      setConsentError("You must authorize data retrieval to link your academic record.");
+      return;
+    }
+
     setPending(true);
 
     try {
@@ -87,6 +96,7 @@ export function LinkStudentForm({
             : "Your profile will stay pending until an admin reviews the request."
       });
       setDob("");
+      setConsentedToLink(false);
       router.refresh();
     } catch (error) {
       pushToast({
@@ -185,6 +195,30 @@ export function LinkStudentForm({
             <CalendarDays className="h-4 w-4" />
           </button>
         </div>
+
+        <div className="py-2">
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={consentedToLink}
+              onChange={(event) => {
+                setConsentedToLink(event.target.checked);
+                if (event.target.checked) setConsentError("");
+              }}
+              className="mt-1 h-4 w-4 shrink-0 rounded border-line text-accent focus:ring-accent"
+            />
+            <span className="text-xs leading-relaxed text-slate">
+              I authorize Scorlo to retrieve, process, and cache my official academic records, including grades and calculated rankings. I confirm that I am the owner of this roll number.
+            </span>
+          </label>
+          {consentError ? (
+            <p className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-danger">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span>{consentError}</span>
+            </p>
+          ) : null}
+        </div>
+
         <button
           type="submit"
           disabled={pending}

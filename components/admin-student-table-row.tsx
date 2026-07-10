@@ -14,9 +14,10 @@ type Props = {
     roll_no: string;
     branch_name: string | null;
   };
+  showRank?: boolean;
 };
 
-export function AdminStudentTableRow({ serialNumber, student }: Props) {
+export function AdminStudentTableRow({ serialNumber, student, showRank = true }: Props) {
   const router = useRouter();
   const [opening, setOpening] = useState(false);
   const href = `/admin/students/${student.id}`;
@@ -47,7 +48,7 @@ export function AdminStudentTableRow({ serialNumber, student }: Props) {
         </div>
         <div className="mt-1 text-xs text-slate">{student.roll_no}</div>
       </td>
-      <td className="px-4 py-4 font-semibold text-ink">{student.batch_rank ?? "--"}</td>
+      {showRank ? <td className="px-4 py-4 font-semibold text-ink">{student.batch_rank ?? "--"}</td> : null}
       <td className="px-4 py-4 text-ink">{formatBranchLabel(student.branch_name)}</td>
     </tr>
   );

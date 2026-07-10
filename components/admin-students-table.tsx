@@ -50,7 +50,7 @@ function buildStudentsTableUrl(
   return next ? `/admin/students?${next}` : "/admin/students";
 }
 
-export function AdminStudentsTable() {
+export function AdminStudentsTable({ isScoped = false }: { isScoped?: boolean }) {
   const searchParams = useSearchParams();
   const urlQuery = useMemo(() => searchParams.get("q") ?? "", [searchParams]);
   const urlBranch = useMemo(() => searchParams.get("branch") ?? "", [searchParams]);
@@ -186,7 +186,7 @@ export function AdminStudentsTable() {
     >
       <div className="space-y-4">
         <form
-          className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_180px_auto]"
+          className={isScoped ? "grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]" : "grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_180px_auto]"}
           onSubmit={(event) => {
             event.preventDefault();
             pushStudentsUrl(draftQuery, branch, course, 1, pageSize);
@@ -201,40 +201,44 @@ export function AdminStudentsTable() {
             placeholder="Search by roll number, student name, or institute"
             className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink"
           />
-          <select
-            value={branch}
-            onChange={(event) => {
-              const nextBranch = event.target.value;
-              pushStudentsUrl(query, nextBranch, course, 1, pageSize);
-              setBranch(nextBranch);
-              setPage(1);
-            }}
-            className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink"
-          >
-            <option value="">All branches</option>
-            {availableBranches.map((option) => (
-              <option key={option} value={option}>
-                {formatBranchLabel(option)}
-              </option>
-            ))}
-          </select>
-          <select
-            value={course}
-            onChange={(event) => {
-              const nextCourse = event.target.value;
-              pushStudentsUrl(query, branch, nextCourse, 1, pageSize);
-              setCourse(nextCourse);
-              setPage(1);
-            }}
-            className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink"
-          >
-            <option value="">All courses</option>
-            {availableCourses.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+          {!isScoped && (
+            <>
+              <select
+                value={branch}
+                onChange={(event) => {
+                  const nextBranch = event.target.value;
+                  pushStudentsUrl(query, nextBranch, course, 1, pageSize);
+                  setBranch(nextBranch);
+                  setPage(1);
+                }}
+                className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink"
+              >
+                <option value="">All branches</option>
+                {availableBranches.map((option) => (
+                  <option key={option} value={option}>
+                    {formatBranchLabel(option)}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={course}
+                onChange={(event) => {
+                  const nextCourse = event.target.value;
+                  pushStudentsUrl(query, branch, nextCourse, 1, pageSize);
+                  setCourse(nextCourse);
+                  setPage(1);
+                }}
+                className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink"
+              >
+                <option value="">All courses</option>
+                {availableCourses.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
           <button className="rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white">
             Search
           </button>
@@ -277,7 +281,7 @@ export function AdminStudentsTable() {
                 <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-mist">
                   <th className="px-4 py-3">S. No.</th>
                   <th className="px-4 py-3">Student</th>
-                  <th className="px-4 py-3">Rank</th>
+                  {isScoped || branch ? <th className="px-4 py-3">Rank</th> : null}
                   <th className="px-4 py-3">Branch</th>
                 </tr>
               </thead>
@@ -288,11 +292,12 @@ export function AdminStudentsTable() {
                       key={student.id}
                       serialNumber={(currentPage - 1) * currentPageSize + index + 1}
                       student={student}
+                      showRank={isScoped || !!branch}
                     />
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-4 py-6 text-sm text-slate">
+                    <td colSpan={isScoped || branch ? 4 : 3} className="px-4 py-6 text-sm text-slate">
                       {pending ? "Loading..." : "No student records matched the search."}
                     </td>
                   </tr>
