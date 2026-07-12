@@ -23,80 +23,31 @@ function toControls(settings: {
 }
 
 export async function ensureAppRuntimeControlsSchema() {
+  if (process.env.NODE_ENV === "production") {
+    return;
+  }
+
   if (schemaReadyPromise) {
     await schemaReadyPromise;
     return;
   }
 
   schemaReadyPromise = (async () => {
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS app_runtime_settings (
-        id INTEGER PRIMARY KEY,
-        signups_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-        linking_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE app_runtime_settings
-      ADD COLUMN IF NOT EXISTS signups_enabled BOOLEAN NOT NULL DEFAULT TRUE
-    `);
-
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE app_runtime_settings
-      ADD COLUMN IF NOT EXISTS linking_enabled BOOLEAN NOT NULL DEFAULT TRUE
-    `);
-
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE app_runtime_settings
-      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    `);
-
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE app_runtime_settings
-      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    `);
-
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO app_runtime_settings (id)
-      VALUES (${APP_RUNTIME_SETTINGS_ID})
-      ON CONFLICT (id) DO NOTHING
-    `);
-
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS app_user_access (
-        app_user_id BIGINT PRIMARY KEY REFERENCES app_users(id) ON DELETE CASCADE,
-        dashboard_access_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE app_user_access
-      ADD COLUMN IF NOT EXISTS dashboard_access_enabled BOOLEAN NOT NULL DEFAULT TRUE
-    `);
-
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE app_user_access
-      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    `);
-
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE app_user_access
-      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    `);
+    // Schema is managed statically via Prisma. No-op to avoid database DDL overhead.
   })();
-
-  await schemaReadyPromise;
+  return schemaReadyPromise;
 }
 
-export async function getAppRuntimeControls() {
-  await ensureAppRuntimeControlsSchema();
-  const sql = getSql();
+let cachedControls: AppRuntimeControls | null = null;
+let controlsCacheExpiry = 0;
 
+export async function getAppRuntimeControls() {
+  const now = Date.now();
+  if (cachedControls && now < controlsCacheExpiry) {
+    return cachedControls;
+  }
+
+  const sql = getSql();
   const settingsRows = (await sql`
     SELECT signups_enabled, linking_enabled
     FROM app_runtime_settings
@@ -107,14 +58,18 @@ export async function getAppRuntimeControls() {
     linking_enabled: boolean;
   }>;
 
-  return toControls({
+  const controls = toControls({
     signupsEnabled: settingsRows[0]?.signups_enabled ?? true,
     linkingEnabled: settingsRows[0]?.linking_enabled ?? true
   });
+
+  cachedControls = controls;
+  controlsCacheExpiry = now + 30000; // 30 seconds
+
+  return controls;
 }
 
 export async function getUserDashboardAccessEnabled(appUserId: bigint | number) {
-  await ensureAppRuntimeControlsSchema();
   const sql = getSql();
   const normalizedAppUserId = typeof appUserId === "bigint" ? appUserId : BigInt(appUserId);
 

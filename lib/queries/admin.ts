@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ensureAppRuntimeControlsSchema } from "@/lib/app-runtime-controls";
+
 import { MAIN_ADMIN_EMAIL, MAIN_ADMIN_NAME } from "@/lib/admin/constants";
 import { getSql } from "@/lib/db";
 import { ensureStaffAccessSchema, type StaffType } from "@/lib/staff-access";
@@ -242,7 +242,7 @@ export async function searchAdminUsers({
   query?: string;
   role?: string;
 }) {
-  await ensureAppRuntimeControlsSchema();
+
   const sql = getSql();
   const pattern = buildSearchPattern(query);
   const roleFilter = role?.trim() ?? "";

@@ -254,6 +254,7 @@ model students {
   student_links    StudentLink?
   student_metrics  student_metrics?
   student_rankings student_rankings[]
+  student_app_snapshot_cache StudentAppSnapshotCache?
 }
 
 model subject_results {
@@ -273,4 +274,15 @@ model subject_results {
 
   @@unique([semester_result_id, code], map: "uq_subject_result")
   @@index([semester_result_id], map: "ix_subject_results_semester_result_id")
+}
+
+model StudentAppSnapshotCache {
+  studentId   BigInt   @id @map("student_id")
+  payloadJson Json     @map("payload_json")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  students    students @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([updatedAt(sort: Desc)], map: "ix_student_app_snapshot_cache_updated_at")
+  @@map("student_app_snapshot_cache")
 }

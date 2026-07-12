@@ -2,7 +2,7 @@ import "server-only";
 
 import type { DecodedIdToken } from "firebase-admin/auth";
 import { MAIN_ADMIN_NAME, isMainAdminEmail } from "@/lib/admin/constants";
-import { getAppRuntimeControls, getUserDashboardAccessEnabled } from "@/lib/app-runtime-controls";
+import { getAppRuntimeControls } from "@/lib/app-runtime-controls";
 import { prisma } from "@/lib/prisma";
 
 export type AppUser = {
@@ -60,11 +60,12 @@ export async function ensureAppUserForSession(decoded: DecodedIdToken) {
 
   // Try to find the user first to avoid unnecessary writes
   const existingUser = await prisma.appUser.findUnique({
-    where: { firebaseUid: decoded.uid }
+    where: { firebaseUid: decoded.uid },
+    include: { accessControl: true }
   });
 
   if (existingUser) {
-    const dashboardAccessEnabled = await getUserDashboardAccessEnabled(existingUser.id);
+    const dashboardAccessEnabled = existingUser.accessControl?.dashboardAccessEnabled ?? true;
     const lastLogin = existingUser.lastLoginAt;
     // Only update login timestamp if it's been more than 1 hour or critical data changed
       const needsUpdate =

@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     const auth = getFirebaseAdminAuth();
     const sessionCookieName = getSessionCookieName();
 
-    const decoded = await auth.verifyIdToken(body.idToken, true);
+    const decoded = await auth.verifyIdToken(body.idToken, false);
     const email = decoded.email?.toLowerCase() || "";
     const authTimeMs =
       typeof decoded.auth_time === "number" ? decoded.auth_time * 1000 : Number.NaN;

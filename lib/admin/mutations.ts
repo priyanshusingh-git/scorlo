@@ -3,7 +3,7 @@ import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Prisma, PrismaClient } from "@prisma/client";
-import { ensureAppRuntimeControlsSchema } from "@/lib/app-runtime-controls";
+
 import { MAIN_ADMIN_EMAIL, MAIN_ADMIN_NAME, isMainAdminEmail } from "@/lib/admin/constants";
 import { getSql } from "@/lib/db";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
@@ -311,7 +311,7 @@ export async function updateUserDashboardAccess(
   targetUserId: number,
   dashboardAccessEnabled: boolean
 ) {
-  await ensureAppRuntimeControlsSchema();
+
 
   return prisma.$transaction(async (tx) => {
     const targetUser = await tx.appUser.findUnique({
@@ -452,7 +452,7 @@ export async function updateAppRuntimeSettings(
     linkingEnabled?: boolean;
   }
 ) {
-  await ensureAppRuntimeControlsSchema();
+
 
   const result = await prisma.$transaction(async (tx) => {
     const existingRows = await tx.$queryRaw<Array<{

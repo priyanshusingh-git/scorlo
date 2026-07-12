@@ -1,5 +1,6 @@
 import "server-only";
 
+import { revalidateTag, unstable_cache } from "next/cache";
 import { computeAktuWeightedCgpa, formatMetric, parseNumericMetric } from "@/lib/aktu-metrics";
 import { getSql } from "@/lib/db";
 import type { RankingMetricKey, RankingsPayload } from "@/lib/queries/rankings";
@@ -141,31 +142,9 @@ type CacheRow = {
  */
 const SNAPSHOT_VERSION = 9;
 
-let cacheSchemaPromise: Promise<void> | null = null;
-
 async function ensureSnapshotCacheTable() {
-  if (!cacheSchemaPromise) {
-    cacheSchemaPromise = (async () => {
-      const sql = getSql();
-      await sql.query(`
-        CREATE TABLE IF NOT EXISTS student_app_snapshot_cache (
-          student_id BIGINT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
-          payload_json JSONB NOT NULL,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `);
-      await sql.query(`
-        CREATE INDEX IF NOT EXISTS ix_student_app_snapshot_cache_updated_at
-          ON student_app_snapshot_cache(updated_at DESC)
-      `);
-    })().catch((error) => {
-      cacheSchemaPromise = null;
-      throw error;
-    });
-  }
-
-  await cacheSchemaPromise;
+  // Schema is managed statically via Prisma. No-op to avoid database DDL overhead.
+  return Promise.resolve();
 }
 
 function parseNumericValue(value: string | null) {
@@ -914,10 +893,12 @@ export async function rebuildDashboardCacheForStudent(studentId: number) {
 
   if (!payload) {
     await deleteDashboardCacheForStudent(studentId);
+    revalidateTag(`student-snapshot-${studentId}`, "max");
     return null;
   }
 
   await writeSnapshotCache(studentId, payload);
+  revalidateTag(`student-snapshot-${studentId}`, "max");
   return payload;
 }
 
@@ -988,12 +969,20 @@ export async function refreshDashboardCachesForLinkedStudents() {
 }
 
 export async function getStudentAppSnapshot(studentId: number): Promise<StudentAppSnapshot | null> {
-  const cached = await readSnapshotCache(studentId);
-  if (cached) {
-    return cached;
-  }
-
-  return rebuildDashboardCacheForStudent(studentId);
+  return unstable_cache(
+    async (id: number) => {
+      const cached = await readSnapshotCache(id);
+      if (cached) {
+        return cached;
+      }
+      return rebuildDashboardCacheForStudent(id);
+    },
+    [`student-snapshot-${studentId}`],
+    {
+      tags: [`student-snapshot-${studentId}`],
+      revalidate: false
+    }
+  )(studentId);
 }
 
 export async function getDashboardForStudent(studentId: number): Promise<DashboardPayload | null> {

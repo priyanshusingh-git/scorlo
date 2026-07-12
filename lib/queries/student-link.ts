@@ -3,7 +3,7 @@ import "server-only";
 import { getAppRuntimeControls } from "@/lib/app-runtime-controls";
 import { getSql } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
-import { deleteDashboardCacheForStudent, rebuildDashboardCacheForStudent } from "@/lib/queries/dashboard";
+import { deleteDashboardCacheForStudent } from "@/lib/queries/dashboard";
 
 export type StudentLinkState = {
   student_link_id: number | null;
@@ -107,8 +107,6 @@ export async function getStudentLinkForUser(appUserId: number) {
       status: "pending"
     }
   });
-
-  await rebuildDashboardCacheForStudent(studentId);
 
   return toStudentLinkState(updatedLink);
 }
@@ -229,7 +227,6 @@ export async function linkStudentRecord({
       "Your academic details were submitted. Linking is currently disabled, so your profile will stay pending until the admin approves it or re-enables linking.";
   } else if (student) {
     message = "Academic record linked successfully.";
-    await rebuildDashboardCacheForStudent(student.id);
   } else {
     message =
       "We could not find a matching student record for this roll number. Your account is under admin verification.";

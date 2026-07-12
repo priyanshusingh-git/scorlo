@@ -26,6 +26,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "server-only": [
+        "scripts/mock-server-only.ts"
       ]
     }
   },

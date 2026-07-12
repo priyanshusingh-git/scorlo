@@ -15,7 +15,7 @@ export const getCurrentSessionUser = cache(async () => {
   if (!sessionCookie) return null;
 
   try {
-    const decoded = await getFirebaseAdminAuth().verifySessionCookie(sessionCookie, true);
+    const decoded = await getFirebaseAdminAuth().verifySessionCookie(sessionCookie, false);
     return await ensureAppUserForSession(decoded);
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
