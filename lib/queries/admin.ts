@@ -624,7 +624,7 @@ export async function getAdminStudentDetailForScope(
       (
         SELECT COUNT(*)::int
         FROM subject_results sub
-        WHERE sub.semester_result_id = semester_result_id
+        WHERE sub.semester_result_id = ranked_semesters.semester_result_id
           AND sub.type IN ('Theory', 'Practical')
       ) AS credit_subjects_count
     FROM ranked_semesters

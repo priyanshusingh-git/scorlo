@@ -97,9 +97,8 @@ export default async function AdminStudentProfilePage({ params }: PageProps) {
                     {normalizeSemesterStatus(semester.result_status, detail.active_backs)}
                   </StatusBadge>
                 </div>
-                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
                   <InfoTile label="SGPA" value={semester.sgpa ?? "--"} />
-                  <InfoTile label="Percentage" value={semester.percentage ? `${semester.percentage}%` : "--"} />
                   <InfoTile
                     label="Branch rank"
                     value={formatRankValue(branchSemesterRank?.self_rank ?? null)}
